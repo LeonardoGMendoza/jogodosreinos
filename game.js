@@ -32,7 +32,7 @@ const bgmCelestial = new Audio('hino_celestial.mp3');
 
 // Estado do Jogo
 let isPlaying = false;
-let currentPhase = 0; // 0=Telestial, 1=Terrestre, 2=Celestial, 3=Criador de Mundos
+let currentPhase = 0; // 0=Telestial, 1=Terrestre, 2=Celestial, 3=Criador de Mundos, 4=Perdição
 let sidesDrawn = 0;
 let targetSides = 3;
 let outerRadius = 0;
@@ -43,6 +43,7 @@ let particles = [];
 let backgroundColor = "#0a0a1a";
 
 let planetsCreated = 0;
+const PLANETS_TO_WIN = 3;
 
 // Mecânica de Corte (Blade)
 let isDragging = false;
@@ -50,10 +51,11 @@ let bladePoints = [];
 let floatingTargets = [];
 
 const scriptures = [
-  "Glória das Estrelas: Reino Telestial. Lute contra a escuridão!",
-  "Glória da Lua: Reino Terrestre. A prisão acelera!",
-  "Glória do Sol: Reino Celestial. Absorva a Luz Perfeita!",
-  "Você se tornou um Criador. Organize a matéria e salve as almas!"
+  "Glória das Estrelas: Lute contra a escuridão!",
+  "Glória da Lua: A prisão acelera!",
+  "Glória do Sol: Absorva a Luz Perfeita!",
+  "Deus Criador: Organize a matéria e defenda seu mundo!",
+  "Trevas Exteriores: Resgate as almas. CUIDADO COM A PERDIÇÃO!"
 ];
 
 function unlockAudio() {
@@ -65,34 +67,42 @@ function unlockAudio() {
 document.addEventListener('pointerdown', unlockAudio);
 
 function spawnTarget() {
-  const isGodMode = currentPhase === 3;
-  const isCelestial = currentPhase === 2;
-  const size = isGodMode ? 70 : (isCelestial ? 40 : 80);
-  
   let x, y, vx, vy;
+  let type = 0; 
+  let size = 60;
+  let shapeType = 0;
+  let isOrb = false;
   
-  if (isGodMode) {
+  if (currentPhase === 3) {
     // Modo Deus: vêm das bordas em direção ao centro
+    size = 70;
     const angle = Math.random() * Math.PI * 2;
     const spawnRadius = Math.max(cw, ch) * 0.7;
     x = cw/2 + Math.cos(angle) * spawnRadius;
     y = ch/2 + Math.sin(angle) * spawnRadius;
-    
     const speed = Math.random() * 2 + 1.5;
     vx = -Math.cos(angle) * speed;
     vy = -Math.sin(angle) * speed;
+    type = Math.random() > 0.6 ? 1 : 0; // 0=Matéria, 1=Nave das trevas
+    shapeType = Math.floor(Math.random() * 2);
+  } else if (currentPhase === 4) {
+    // Fase da Perdição: Pulam de baixo para cima (Frutas e Bombas)
+    size = 50;
+    x = Math.random() * cw * 0.8 + (cw * 0.1);
+    y = ch + 50;
+    vx = (Math.random() - 0.5) * 4;
+    vy = - (Math.random() * 4 + 8); // Pulo para cima
+    type = Math.random() > 0.7 ? 3 : 2; // 2=Alma(Cortar), 3=Perdição/Bomba(NÃO CORTAR)
+    isOrb = (type === 2);
   } else {
-    // Modo Normal: cruzam a tela
+    // Modo Normal (1, 2, 3)
+    size = currentPhase === 2 ? 40 : 80;
+    isOrb = currentPhase === 2;
     x = Math.random() < 0.5 ? -50 : cw + 50;
     y = Math.random() * ch * 0.7 + (ch * 0.15);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.5);
     vy = (Math.random() - 0.5) * 3;
-  }
-  
-  // Tipos para Modo Deus: 0 = Matéria (Roda/Cruz), 1 = Inimigo (Trevas)
-  let type = 0; 
-  if (isGodMode) {
-    type = Math.random() > 0.6 ? 1 : 0; 
+    type = 0;
   }
   
   floatingTargets.push({
@@ -100,9 +110,9 @@ function spawnTarget() {
     angle: Math.random() * Math.PI,
     vAngle: (Math.random() - 0.5) * 0.05,
     size: size,
-    isOrb: isCelestial,
-    type: type, // 0 = normal/matéria, 1 = nave das trevas
-    shapeType: Math.floor(Math.random() * 2), // 0 = Roda, 1 = Cruz (para matéria)
+    isOrb: isOrb,
+    type: type, 
+    shapeType: shapeType,
     active: true
   });
 }
@@ -111,7 +121,7 @@ function initPhase(phase) {
   currentPhase = phase;
   sidesDrawn = 0;
   outerRadius = Math.max(cw, ch) * 0.8;
-  innerRadius = phase === 3 ? 20 : 60; // Começa pequeno no Modo Deus
+  innerRadius = (phase === 3) ? 20 : 60;
   particles = [];
   floatingTargets = [];
   bladePoints = [];
@@ -121,35 +131,31 @@ function initPhase(phase) {
   bgmCelestial.pause();
   
   if (phase === 0) {
-    targetSides = 3; 
-    shrinkSpeed = 1.8; // MAIS RÁPIDO
-    backgroundColor = "#050510"; 
-    kingdomName.innerText = "REINO TELESTIAL";
-    planetsCreated = 0;
-    bgmTelestial.play().catch(()=>{});
+    targetSides = 3; shrinkSpeed = 1.8; backgroundColor = "#050510"; kingdomName.innerText = "REINO TELESTIAL";
+    planetsCreated = 0; bgmTelestial.play().catch(()=>{});
   } else if (phase === 1) {
-    targetSides = 4; 
-    shrinkSpeed = 2.5; // MUITO MAIS RÁPIDO
-    backgroundColor = "#1a1a2e"; 
-    kingdomName.innerText = "REINO TERRESTRE";
+    targetSides = 4; shrinkSpeed = 2.5; backgroundColor = "#1a1a2e"; kingdomName.innerText = "REINO TERRESTRE";
     bgmTerrestrial.play().catch(()=>{});
   } else if (phase === 2) {
-    targetSides = 10; 
-    shrinkSpeed = 3.5; // INSANO
-    backgroundColor = "#331100"; 
-    kingdomName.innerText = "REINO CELESTIAL";
+    targetSides = 10; shrinkSpeed = 3.5; backgroundColor = "#331100"; kingdomName.innerText = "REINO CELESTIAL";
     bgmCelestial.play().catch(()=>{});
   } else if (phase === 3) {
-    shrinkSpeed = 0; // Prisão não fecha mais
-    backgroundColor = "#000005"; // Espaço profundo
-    kingdomName.innerText = "CRIADOR DE MUNDOS";
+    shrinkSpeed = 0; backgroundColor = "#000005"; kingdomName.innerText = "CRIADOR DE MUNDOS";
     bgmCelestial.play().catch(()=>{});
+  } else if (phase === 4) {
+    targetSides = 15; // Salvar 15 almas
+    shrinkSpeed = 0; backgroundColor = "#000000"; // Breu total
+    kingdomName.innerText = "TREVAS EXTERIORES (PERDIÇÃO)";
+    kingdomName.style.color = "#ff3333";
+    bgmTerrestrial.play().catch(()=>{}); // Música tensa
   }
   
   if (phase < 3) {
     scoreDisplay.innerText = "Nível " + (phase + 1);
-  } else {
-    scoreDisplay.innerText = "Planetas: " + planetsCreated;
+  } else if (phase === 3) {
+    scoreDisplay.innerText = "Planetas: " + planetsCreated + "/" + PLANETS_TO_WIN;
+  } else if (phase === 4) {
+    scoreDisplay.innerText = "Almas Salvas: 0/" + targetSides;
   }
   
   uiContainer.classList.remove('hidden');
@@ -171,6 +177,7 @@ function showScripture(text) {
 function startGame() {
   screenMenu.classList.add('hidden');
   screenGameOver.classList.add('hidden');
+  kingdomName.style.color = "white"; // reseta
   isPlaying = true;
   initPhase(0);
   gameLoop();
@@ -181,9 +188,13 @@ function gameOver(reason) {
   cancelAnimationFrame(gameLoopId);
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
-  if (deathReason) deathReason.innerText = reason || "A prisão te esmagou.";
+  if (deathReason) deathReason.innerText = reason || "A escuridão venceu.";
   
-  finalScoreDisplay.innerText = currentPhase < 3 ? ("Fase " + (currentPhase + 1)) : (planetsCreated + " Planetas");
+  if (currentPhase < 3) finalScoreDisplay.innerText = "Fase " + (currentPhase + 1);
+  else if (currentPhase === 3) finalScoreDisplay.innerText = planetsCreated + " Planetas";
+  else if (currentPhase === 4) finalScoreDisplay.innerText = sidesDrawn + " Almas Salvas";
+  else finalScoreDisplay.innerText = "VITÓRIA SUPREMA";
+  
   uiContainer.classList.add('hidden');
 }
 
@@ -192,13 +203,23 @@ function advancePhase() {
   outerRadius += 500;
   
   if (currentPhase === 3) {
-    // Criou um planeta!
     planetsCreated++;
-    scoreDisplay.innerText = "Planetas: " + planetsCreated;
-    showScripture("Mundo Criado! Haja Luz!");
-    innerRadius = 20; // Reseta tamanho do novo planeta
-    // Limpa tela
+    scoreDisplay.innerText = "Planetas: " + planetsCreated + "/" + PLANETS_TO_WIN;
+    innerRadius = 20; 
     floatingTargets = [];
+    
+    if (planetsCreated >= PLANETS_TO_WIN) {
+      setTimeout(() => initPhase(4), 1000);
+    } else {
+      showScripture("Mundo Criado! Haja Luz!");
+    }
+    return;
+  }
+  
+  if (currentPhase === 4) {
+    // Venceu o Jogo
+    showScripture("A Luz Venceu as Trevas para Sempre!");
+    setTimeout(() => gameOver("Obrigado por jogar! Você é o Supremo Salvador!"), 3000);
     return;
   }
   
@@ -235,14 +256,6 @@ window.addEventListener('pointerup', () => {
 btnStart.addEventListener('click', startGame);
 btnRestart.addEventListener('click', startGame);
 
-function lineIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
-  const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-  if (den === 0) return false;
-  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
-  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
-  return t >= 0 && t <= 1 && u >= 0 && u <= 1;
-}
-
 function checkCuts() {
   if (bladePoints.length < 2) return;
   const p1 = bladePoints[bladePoints.length - 2];
@@ -252,9 +265,8 @@ function checkCuts() {
     if (!t.active) return;
     
     let hit = false;
-    
-    // Distância radial para quase todos agora para simplificar os formatos complexos
     const dist = Math.hypot(p2.x - t.x, p2.y - t.y);
+    // Hitbox da espada com os alvos
     if (dist < t.size/2 + 25) {
       hit = true;
     }
@@ -264,21 +276,30 @@ function checkCuts() {
       
       if (currentPhase === 3) {
         if (t.type === 0) {
-          // Fatiou matéria (construiu planeta)
           createCutEffect(t.x, t.y, "#ffffff");
-          innerRadius += 8; // Cresce o planeta
-          if (innerRadius > 150) {
-            advancePhase(); // Terminou o planeta!
-          }
-        } else {
-          // Fatiou nave das trevas (salvou alma)
+          innerRadius += 25; // 4 cortes fazem 1 planeta (4 * 25 = 100)
+          if (innerRadius >= 120) advancePhase();
+        } else if (t.type === 1) {
           createSoulSalvationEffect(t.x, t.y);
+        }
+      } else if (currentPhase === 4) {
+        if (t.type === 2) {
+          // Alma Salva
+          createCutEffect(t.x, t.y, "#ffffff");
+          createSoulSalvationEffect(t.x, t.y);
+          sidesDrawn++;
+          scoreDisplay.innerText = "Almas Salvas: " + sidesDrawn + "/" + targetSides;
+          if (sidesDrawn === targetSides) advancePhase();
+        } else if (t.type === 3) {
+          // FILHO DA PERDIÇÃO CORTADO (BOMBA)
+          createExplosion(t.x, t.y, 4, "#ff0000"); // Explosao de sangue
+          gameOver("Você cortou a Perdição! A maldição te alcançou.");
         }
       } else {
         // Fases Normais
         createCutEffect(t.x, t.y, "#ffffff");
         sidesDrawn++;
-        outerRadius += 30; // Mais fôlego!
+        outerRadius += 30; 
         if (sidesDrawn === targetSides) advancePhase();
       }
     }
@@ -293,37 +314,30 @@ function createCutEffect(x, y, color) {
       x: x, y: y,
       vx: (Math.random() - 0.5) * 15,
       vy: (Math.random() - 0.5) * 15,
-      life: 1,
-      size: 4,
-      color: color
+      life: 1, size: 4, color: color
     });
   }
 }
 
 function createSoulSalvationEffect(x, y) {
-  // Almas subindo (Brancas)
-  for(let i=0; i<15; i++) {
+  for(let i=0; i<20; i++) {
     particles.push({
       x: x, y: y,
       vx: (Math.random() - 0.5) * 5,
-      vy: -Math.random() * 8 - 2, // Sobe rápido
-      life: 1,
-      size: 5,
-      color: "#ffffff"
+      vy: -Math.random() * 8 - 4, // Sobe rápido para o céu
+      life: 1, size: 5, color: "#ffffff"
     });
   }
 }
 
-function createExplosion(x, y, phase) {
-  const color = phase === 0 ? "#00ffff" : phase === 1 ? "#ff00ff" : "#ffff00";
-  for(let i=0; i<60; i++) {
+function createExplosion(x, y, phase, forceColor) {
+  const color = forceColor || (phase === 0 ? "#00ffff" : phase === 1 ? "#ff00ff" : "#ffff00");
+  for(let i=0; i<80; i++) {
     particles.push({
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 25,
-      vy: (Math.random() - 0.5) * 25,
-      life: 1,
-      size: Math.random() * 6 + 2,
-      color: color
+      vx: (Math.random() - 0.5) * 35,
+      vy: (Math.random() - 0.5) * 35,
+      life: 1, size: Math.random() * 6 + 2, color: color
     });
   }
 }
@@ -347,13 +361,10 @@ function updateAndDrawParticles() {
 
 function drawPolygon(ctx, x, y, radius, sides, progress, color, lineWidth) {
   if (sides < 3 && currentPhase < 2) {
-    ctx.beginPath();
-    ctx.moveTo(x, y - radius);
+    ctx.beginPath(); ctx.moveTo(x, y - radius);
     if (sides > 0) ctx.lineTo(x + radius * Math.cos(Math.PI/6), y + radius * Math.sin(Math.PI/6));
     if (sides > 1) ctx.lineTo(x - radius * Math.cos(Math.PI/6), y + radius * Math.sin(Math.PI/6));
-    ctx.strokeStyle = color;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
     return;
   }
   ctx.beginPath();
@@ -364,54 +375,33 @@ function drawPolygon(ctx, x, y, radius, sides, progress, color, lineWidth) {
     const currentAngle = offset + i * angleStep;
     const px = x + Math.cos(currentAngle) * radius;
     const py = y + Math.sin(currentAngle) * radius;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
-  ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth;
-  ctx.lineJoin = 'round';
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 15;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineJoin = 'round';
+  ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.stroke(); ctx.shadowBlur = 0;
 }
 
 function drawCircle(ctx, x, y, radius, color, isSolid = false) {
-  ctx.beginPath();
-  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
   if (isSolid) {
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 30;
-    ctx.fill();
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 30; ctx.fill();
   } else {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 8;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 15;
-    ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.stroke();
   }
   ctx.shadowBlur = 0;
 }
 
-// Desenha obstáculos nostálgicos da Fase 4
 function drawWheel(ctx, size) {
-  const colors = ["#ff00ff", "#00ffff", "#ffff00", "#800080"]; // Cores classicas
+  const colors = ["#ff00ff", "#00ffff", "#ffff00", "#800080"];
   ctx.lineWidth = 8;
   for(let i=0; i<4; i++){
-    ctx.beginPath();
-    ctx.arc(0, 0, size/2, (Math.PI/2)*i, (Math.PI/2)*(i+1));
-    ctx.strokeStyle = colors[i];
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, size/2, (Math.PI/2)*i, (Math.PI/2)*(i+1)); ctx.strokeStyle = colors[i]; ctx.stroke();
   }
 }
 
 function drawCross(ctx, size) {
   const colors = ["#ff00ff", "#00ffff", "#ffff00", "#800080"];
-  ctx.lineWidth = 8;
-  const l = size/2;
-  ctx.lineCap = "round";
-  
+  ctx.lineWidth = 8; const l = size/2; ctx.lineCap = "round";
   ctx.strokeStyle = colors[0]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-l); ctx.stroke();
   ctx.strokeStyle = colors[1]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(l,0); ctx.stroke();
   ctx.strokeStyle = colors[2]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,l); ctx.stroke();
@@ -419,18 +409,40 @@ function drawCross(ctx, size) {
 }
 
 function drawUFO(ctx, size) {
-  // Nave das trevas
-  ctx.fillStyle = "#111111";
+  ctx.fillStyle = "#111111"; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 15;
+  ctx.beginPath(); ctx.ellipse(0, 0, size/2, size/4, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(0, -size/8, size/8, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawSoul(ctx, size) {
+  // Alma pálida
+  ctx.fillStyle = "rgba(200, 230, 255, 0.9)";
+  ctx.shadowColor = "#ffffff";
+  ctx.shadowBlur = 20;
+  ctx.beginPath(); ctx.arc(0, 0, size/3, 0, Math.PI*2); ctx.fill();
+  ctx.shadowBlur = 0;
+}
+
+function drawBomb(ctx, size) {
+  // Filho da Perdição (Bomba) - Forma agressiva
+  ctx.fillStyle = "#220000";
+  ctx.strokeStyle = "#ff0000";
+  ctx.lineWidth = 3;
   ctx.shadowColor = "#ff0000";
   ctx.shadowBlur = 15;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, size/2, size/4, 0, 0, Math.PI*2);
-  ctx.fill();
   
-  ctx.fillStyle = "#ff0000"; // Olho vermelho
   ctx.beginPath();
-  ctx.arc(0, -size/8, size/8, 0, Math.PI*2);
+  for (let i = 0; i < 8; i++) {
+    const angle = (Math.PI / 4) * i;
+    const r = (i % 2 === 0) ? size/2 : size/4;
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
   ctx.fill();
+  ctx.stroke();
   ctx.shadowBlur = 0;
 }
 
@@ -442,6 +454,7 @@ function drawBackground() {
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, cw, ch);
   
+  // Só desenha estrelas nas fases que não são a Perdição
   if (currentPhase === 0 || currentPhase === 2 || currentPhase === 3) {
     ctx.fillStyle = (currentPhase === 2 || currentPhase === 3) ? "#ffd700" : "#ffffff";
     stars.forEach(s => {
@@ -459,14 +472,9 @@ function drawBladeTrail() {
   ctx.moveTo(bladePoints[0].x, bladePoints[0].y);
   for (let i = 1; i < bladePoints.length; i++) ctx.lineTo(bladePoints[i].x, bladePoints[i].y);
   
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 10;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.shadowColor = currentPhase === 3 ? "#ffffaa" : "#00ffff"; // Fica divino na fase 4
-  ctx.shadowBlur = 25;
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.shadowColor = currentPhase === 4 ? "#ffffff" : "#00ffff"; 
+  ctx.shadowBlur = 25; ctx.stroke(); ctx.shadowBlur = 0;
 }
 
 function gameLoop() {
@@ -485,8 +493,11 @@ function gameLoop() {
   }
   
   // RESPAWN
-  const spawnRate = currentPhase === 3 ? 0.05 : 0.03; // Mais rápido no modo Deus
-  if (Math.random() < spawnRate && floatingTargets.length < 8) {
+  let spawnRate = 0.03;
+  if (currentPhase === 3) spawnRate = 0.05;
+  if (currentPhase === 4) spawnRate = 0.04;
+  
+  if (Math.random() < spawnRate && floatingTargets.length < (currentPhase === 4 ? 6 : 8)) {
     spawnTarget();
   }
   
@@ -499,29 +510,33 @@ function gameLoop() {
       floatingTargets.splice(i, 1);
       continue;
     }
+    
+    // Na fase 4, gravidade
+    if (currentPhase === 4) {
+       t.vy += 0.1; // Gravidade puxando pra baixo
+    }
+    
     t.x += t.vx;
     t.y += t.vy;
     t.angle += t.vAngle;
     
-    if (currentPhase === 3) {
-      // Inimigos atacam o planeta central
-      if (t.type === 1) {
-         const distToCenter = Math.hypot(t.x - cx, t.y - cy);
-         if (distToCenter < innerRadius + 10) {
-           t.active = false;
-           createCutEffect(t.x, t.y, "#ff0000"); // Sangrou o planeta
-           innerRadius -= 20; // Planeta encolhe
-           if (innerRadius <= 10) {
-             gameOver("As trevas destruíram o seu mundo.");
-             return;
-           }
-           continue; // Pula o resto do desenho
+    // Inimigos batendo no planeta (Fase 3)
+    if (currentPhase === 3 && t.type === 1) {
+       const distToCenter = Math.hypot(t.x - cx, t.y - cy);
+       if (distToCenter < innerRadius + 10) {
+         t.active = false;
+         createCutEffect(t.x, t.y, "#ff0000"); 
+         innerRadius -= 20; 
+         if (innerRadius <= 10) {
+           gameOver("As trevas destruíram o seu mundo.");
+           return;
          }
-      }
+         continue; 
+       }
     }
     
-    // Limite de tela normal
-    if (t.x < -100 || t.x > cw + 100 || t.y < -100 || t.y > ch + 100) {
+    // Some se sair da tela (Na fase 4, some se cair no buraco embaixo)
+    if (t.x < -100 || t.x > cw + 100 || t.y > ch + 100 || t.y < -100) {
       t.active = false;
       continue;
     }
@@ -531,18 +546,19 @@ function gameLoop() {
     ctx.rotate(t.angle);
     
     if (currentPhase === 3) {
-      if (t.type === 1) {
-        drawUFO(ctx, t.size); // Nave Inimiga das Trevas
-      } else {
-        // Matéria Nostálgica (Rodas e Cruzes do Color Switch)
+      if (t.type === 1) drawUFO(ctx, t.size);
+      else {
         if (t.shapeType === 0) drawWheel(ctx, t.size);
         else drawCross(ctx, t.size);
       }
+    } else if (currentPhase === 4) {
+      // Perdição
+      if (t.type === 2) drawSoul(ctx, t.size); // Alma pra salvar
+      if (t.type === 3) drawBomb(ctx, t.size); // Bomba pra fugir
     } else {
       // Fases Normais
       const glowColor = currentPhase === 0 ? "#00ffff" : currentPhase === 1 ? "#ff00ff" : "#ffff00";
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 15;
+      ctx.shadowColor = glowColor; ctx.shadowBlur = 15;
       if (t.isOrb) {
         ctx.beginPath(); ctx.arc(0, 0, t.size/2, 0, Math.PI*2); ctx.fillStyle = glowColor; ctx.fill();
       } else {
@@ -555,7 +571,6 @@ function gameLoop() {
   updateAndDrawParticles();
   drawBladeTrail();
   
-  // DESENHA PRISÃO / PLANETA ESTRUTURAL
   if (currentPhase < 3) {
     const prisonColor = "#ff2222";
     if (currentPhase === 0) drawPolygon(ctx, cx, cy, outerRadius, 3, 3, prisonColor, 8);
@@ -570,14 +585,14 @@ function gameLoop() {
     } else {
       drawPolygon(ctx, cx, cy, innerRadius, targetSides, sidesDrawn, playerColor, 8);
     }
-  } else {
-    // FASE 4: O PLANETA GIGANTE NO CENTRO
-    // O planeta é feito de anéis coloridos da matéria que ele absorve
-    drawCircle(ctx, cx, cy, innerRadius, "#112244", true); // Núcleo
+  } else if (currentPhase === 3) {
+    drawCircle(ctx, cx, cy, innerRadius, "#112244", true); 
     for (let r = 20; r < innerRadius; r += 15) {
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
-      ctx.strokeStyle = `hsl(${(r * 10) % 360}, 100%, 50%)`; // Cores do arco-íris
+      ctx.strokeStyle = `hsl(${(r * 10) % 360}, 100%, 50%)`; 
       ctx.lineWidth = 5; ctx.stroke();
     }
+  } else if (currentPhase === 4) {
+    // Fase 4: Sem prisão e sem centro, você só olha pro abismo (fundo já é preto)
   }
 }
