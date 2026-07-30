@@ -80,7 +80,7 @@ function spawnTarget() {
   if (currentPhase === 3) { // Deus
     size = 70;
     const angle = Math.random() * Math.PI * 2;
-    const spawnRadius = Math.max(cw, ch) * 0.7;
+    const spawnRadius = Math.max(cw, ch) * 0.5 + 50; // Mais próximo da tela
     x = cw/2 + Math.cos(angle) * spawnRadius;
     y = ch/2 + Math.sin(angle) * spawnRadius;
     const speed = Math.random() * 2 + 1.5;
@@ -607,7 +607,7 @@ function gameLoop() {
        }
     }
     
-    if (t.x < -100 || t.x > cw + 100 || t.y > ch + 100 || t.y < -100) {
+    if (t.x < -200 || t.x > cw + 200 || t.y > ch + 200 || t.y < -200) {
       t.active = false;
       continue;
     }
