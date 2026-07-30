@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Jogo dos Reinos</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Contêiner do Jogo Canvas 2D -->
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+  </div>
+
+  <!-- UI do Jogo (Placar e Reino) -->
+  <div id="ui-container" class="hidden">
+    <div id="kingdom-name">REINO TELESTIAL</div>
+    <div id="score-display">Nível: <span id="score">1</span></div>
+  </div>
+
+  <!-- Tela de Menu Inicial -->
+  <div id="screen-menu" class="screen active">
+    <div class="menu-content">
+      <h1 class="game-title">A Jornada dos Reinos</h1>
+      <p class="subtitle">A Prisão do Mundo está se fechando.<br>Toque rápido na tela para construir sua forma geométrica e escapar para a luz!</p>
+      
+      <div class="instructions">
+        <p>⭐ <b>Fase 1:</b> Construa o Triângulo</p>
+        <p>🌙 <b>Fase 2:</b> Construa o Quadrado</p>
+        <p>☀️ <b>Fase 3:</b> Torne-se a Bolinha (Glória Celestial)</p>
+      </div>
+
+      <button id="btn-start" class="btn-epic">Iniciar Jornada</button>
+    </div>
+  </div>
+
+  <!-- Tela de Fim de Jogo (Ficou Preto) -->
+  <div id="screen-gameover" class="screen hidden">
+    <div class="menu-content">
+      <h1 class="game-title" style="color: #ff3333; text-shadow: 0 0 20px #ff0000;">A Escuridão Venceu</h1>
+      <p class="subtitle" id="death-reason">A prisão se fechou antes de você terminar.</p>
+      <div id="final-score-display">Nível alcançado: <span id="final-score">1</span></div>
+      <button id="btn-restart" class="btn-epic">Tentar Novamente</button>
+    </div>
+  </div>
+
+  <!-- Escritura que aparece ao passar de fase -->
+  <div id="scripture-popup" class="hidden">
+    <p id="scripture-text">"Bem-vindo ao novo reino."</p>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
