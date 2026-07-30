@@ -131,13 +131,13 @@ function initPhase(phase) {
   bgmCelestial.pause();
   
   if (phase === 0) {
-    targetSides = 3; shrinkSpeed = 1.8; backgroundColor = "#050510"; kingdomName.innerText = "REINO TELESTIAL";
+    targetSides = 3; shrinkSpeed = 1.0; backgroundColor = "#050510"; kingdomName.innerText = "REINO TELESTIAL";
     planetsCreated = 0; bgmTelestial.play().catch(()=>{});
   } else if (phase === 1) {
-    targetSides = 4; shrinkSpeed = 2.5; backgroundColor = "#1a1a2e"; kingdomName.innerText = "REINO TERRESTRE";
+    targetSides = 4; shrinkSpeed = 1.2; backgroundColor = "#1a1a2e"; kingdomName.innerText = "REINO TERRESTRE";
     bgmTerrestrial.play().catch(()=>{});
   } else if (phase === 2) {
-    targetSides = 10; shrinkSpeed = 3.5; backgroundColor = "#331100"; kingdomName.innerText = "REINO CELESTIAL";
+    targetSides = 10; shrinkSpeed = 1.5; backgroundColor = "#331100"; kingdomName.innerText = "REINO CELESTIAL";
     bgmCelestial.play().catch(()=>{});
   } else if (phase === 3) {
     shrinkSpeed = 0; backgroundColor = "#000005"; kingdomName.innerText = "CRIADOR DE MUNDOS";
@@ -493,11 +493,12 @@ function gameLoop() {
   }
   
   // RESPAWN
-  let spawnRate = 0.03;
-  if (currentPhase === 3) spawnRate = 0.05;
-  if (currentPhase === 4) spawnRate = 0.04;
+  let spawnRate = 0.04;
+  if (currentPhase === 2) spawnRate = 0.08; // Nasce muito mais bolinhas no Celestial
+  if (currentPhase === 3) spawnRate = 0.06;
+  if (currentPhase === 4) spawnRate = 0.05;
   
-  if (Math.random() < spawnRate && floatingTargets.length < (currentPhase === 4 ? 6 : 8)) {
+  if (Math.random() < spawnRate && floatingTargets.length < (currentPhase >= 3 ? 6 : 8)) {
     spawnTarget();
   }
   
