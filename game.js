@@ -607,7 +607,9 @@ function gameLoop() {
        }
     }
     
-    if (t.x < -200 || t.x > cw + 200 || t.y > ch + 200 || t.y < -200) {
+    // Some se sair da tela (Com margem grande para telas largas como Notebooks)
+    const despawnMargin = Math.max(cw, ch);
+    if (t.x < -despawnMargin || t.x > cw + despawnMargin || t.y > ch + despawnMargin || t.y < -despawnMargin) {
       t.active = false;
       continue;
     }
