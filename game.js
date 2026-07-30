@@ -32,7 +32,7 @@ const bgmCelestial = new Audio('hino_celestial.mp3');
 
 // Estado do Jogo
 let isPlaying = false;
-let currentPhase = 0; // 0=Telestial, 1=Terrestre, 2=Celestial, 3=Criador de Mundos, 4=Perdição
+let currentPhase = 0; 
 let sidesDrawn = 0;
 let targetSides = 3;
 let outerRadius = 0;
@@ -44,18 +44,22 @@ let backgroundColor = "#0a0a1a";
 
 let planetsCreated = 0;
 const PLANETS_TO_WIN = 3;
+let highestPhaseReached = 0;
 
 // Mecânica de Corte (Blade)
 let isDragging = false;
 let bladePoints = [];
 let floatingTargets = [];
+let dancingGods = []; // Para a Fase 6
 
 const scriptures = [
   "Glória das Estrelas: Lute contra a escuridão!",
   "Glória da Lua: A prisão acelera!",
   "Glória do Sol: Absorva a Luz Perfeita!",
   "Deus Criador: Organize a matéria e defenda seu mundo!",
-  "Trevas Exteriores: Resgate as almas. CUIDADO COM A PERDIÇÃO!"
+  "Trevas Exteriores: Resgate seus filhos espirituais. CUIDADO COM A PERDIÇÃO!",
+  "Guiando os Filhos: Ajude-os a passar pelas provações rapidamente!",
+  "A Exaltação Eterna: Famílias para sempre. A glória não tem fim!"
 ];
 
 function unlockAudio() {
@@ -73,8 +77,7 @@ function spawnTarget() {
   let shapeType = 0;
   let isOrb = false;
   
-  if (currentPhase === 3) {
-    // Modo Deus: vêm das bordas em direção ao centro
+  if (currentPhase === 3) { // Deus
     size = 70;
     const angle = Math.random() * Math.PI * 2;
     const spawnRadius = Math.max(cw, ch) * 0.7;
@@ -83,19 +86,29 @@ function spawnTarget() {
     const speed = Math.random() * 2 + 1.5;
     vx = -Math.cos(angle) * speed;
     vy = -Math.sin(angle) * speed;
-    type = Math.random() > 0.6 ? 1 : 0; // 0=Matéria, 1=Nave das trevas
+    type = Math.random() > 0.6 ? 1 : 0; 
     shapeType = Math.floor(Math.random() * 2);
-  } else if (currentPhase === 4) {
-    // Fase da Perdição: Pulam de baixo para cima (Frutas e Bombas)
+  } else if (currentPhase === 4) { // Perdição
     size = 50;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
     y = ch + 50;
     vx = (Math.random() - 0.5) * 4;
-    vy = - (Math.random() * 4 + 8); // Pulo para cima
-    type = Math.random() > 0.7 ? 3 : 2; // 2=Alma(Cortar), 3=Perdição/Bomba(NÃO CORTAR)
+    vy = - (Math.random() * 4 + 8); 
+    type = Math.random() > 0.7 ? 3 : 2; // 2=Filho Espiritual(Alma), 3=Filho da Perdição(Bomba)
     isOrb = (type === 2);
+  } else if (currentPhase === 5) { // Guiando os Filhos (Turbo)
+    size = 40;
+    isOrb = true;
+    x = Math.random() < 0.5 ? -50 : cw + 50;
+    y = Math.random() * ch * 0.7 + (ch * 0.15);
+    vx = (x < 0 ? 1 : -1) * (Math.random() * 3 + 2.5); // Bem rápido
+    vy = (Math.random() - 0.5) * 4;
+    type = 0;
+  } else if (currentPhase === 6) {
+    // Festa dos deuses (nao spawna alvos fatiáveis normais)
+    return;
   } else {
-    // Modo Normal (1, 2, 3)
+    // Modo Normal (0, 1, 2)
     size = currentPhase === 2 ? 40 : 80;
     isOrb = currentPhase === 2;
     x = Math.random() < 0.5 ? -50 : cw + 50;
@@ -119,16 +132,21 @@ function spawnTarget() {
 
 function initPhase(phase) {
   currentPhase = phase;
+  if (phase > highestPhaseReached) highestPhaseReached = phase;
+  
   sidesDrawn = 0;
   outerRadius = Math.max(cw, ch) * 0.8;
   innerRadius = (phase === 3) ? 20 : 60;
   particles = [];
   floatingTargets = [];
   bladePoints = [];
+  dancingGods = [];
   
   bgmTelestial.pause();
   bgmTerrestrial.pause();
   bgmCelestial.pause();
+  
+  kingdomName.style.color = "white"; // reseta
   
   if (phase === 0) {
     targetSides = 3; shrinkSpeed = 1.0; backgroundColor = "#050510"; kingdomName.innerText = "REINO TELESTIAL";
@@ -143,11 +161,20 @@ function initPhase(phase) {
     shrinkSpeed = 0; backgroundColor = "#000005"; kingdomName.innerText = "CRIADOR DE MUNDOS";
     bgmCelestial.play().catch(()=>{});
   } else if (phase === 4) {
-    targetSides = 15; // Salvar 15 almas
-    shrinkSpeed = 0; backgroundColor = "#000000"; // Breu total
+    targetSides = 15; shrinkSpeed = 0; backgroundColor = "#000000"; 
     kingdomName.innerText = "TREVAS EXTERIORES (PERDIÇÃO)";
     kingdomName.style.color = "#ff3333";
-    bgmTerrestrial.play().catch(()=>{}); // Música tensa
+    bgmTerrestrial.play().catch(()=>{}); 
+  } else if (phase === 5) {
+    targetSides = 15; shrinkSpeed = 3.0; // Prisão volta e é rápida!
+    backgroundColor = "#110022"; kingdomName.innerText = "GUIANDO SEUS FILHOS";
+    bgmTelestial.play().catch(()=>{}); 
+  } else if (phase === 6) {
+    shrinkSpeed = 0; backgroundColor = "#ffffaa"; // Dourado claro brilhante
+    kingdomName.innerText = "A FESTA DOS DEUSES";
+    kingdomName.style.color = "#885500";
+    bgmCelestial.play().catch(()=>{});
+    for(let i=0; i<30; i++) spawnDancingGod();
   }
   
   if (phase < 3) {
@@ -155,13 +182,19 @@ function initPhase(phase) {
   } else if (phase === 3) {
     scoreDisplay.innerText = "Planetas: " + planetsCreated + "/" + PLANETS_TO_WIN;
   } else if (phase === 4) {
-    scoreDisplay.innerText = "Almas Salvas: 0/" + targetSides;
+    scoreDisplay.innerText = "Filhos Salvos: 0/" + targetSides;
+  } else if (phase === 5) {
+    scoreDisplay.innerText = "Filhos Guiados: 0/" + targetSides;
+  } else if (phase === 6) {
+    scoreDisplay.innerText = "Infinito";
   }
   
   uiContainer.classList.remove('hidden');
   showScripture(scriptures[phase]);
   
-  for(let i=0; i<3; i++) spawnTarget();
+  if (phase !== 6) {
+    for(let i=0; i<3; i++) spawnTarget();
+  }
 }
 
 function showScripture(text) {
@@ -174,26 +207,35 @@ function showScripture(text) {
   }, 3000);
 }
 
-function startGame() {
+function startGame(startPhase = 0) {
   screenMenu.classList.add('hidden');
   screenGameOver.classList.add('hidden');
-  kingdomName.style.color = "white"; // reseta
+  kingdomName.style.color = "white"; 
   isPlaying = true;
-  initPhase(0);
-  gameLoop();
+  initPhase(startPhase);
+  if (!gameLoopId) gameLoop();
+}
+
+function handleRestart() {
+  // Checkpoint: Se já foi Deus (Fase 3 ou mais), volta pro modo Deus ao invés da Fase 0.
+  if (highestPhaseReached >= 3) {
+    startGame(3);
+  } else {
+    startGame(0);
+  }
 }
 
 function gameOver(reason) {
   isPlaying = false;
-  cancelAnimationFrame(gameLoopId);
+  // cancelAnimationFrame(gameLoopId); // Nao vamos cancelar para o fundo continuar animando sutilmente se quisermos, mas ok cancelar
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
   if (deathReason) deathReason.innerText = reason || "A escuridão venceu.";
   
   if (currentPhase < 3) finalScoreDisplay.innerText = "Fase " + (currentPhase + 1);
   else if (currentPhase === 3) finalScoreDisplay.innerText = planetsCreated + " Planetas";
-  else if (currentPhase === 4) finalScoreDisplay.innerText = sidesDrawn + " Almas Salvas";
-  else finalScoreDisplay.innerText = "VITÓRIA SUPREMA";
+  else if (currentPhase === 4) finalScoreDisplay.innerText = sidesDrawn + " Filhos Salvos";
+  else if (currentPhase === 5) finalScoreDisplay.innerText = sidesDrawn + " Filhos Guiados";
   
   uiContainer.classList.add('hidden');
 }
@@ -216,12 +258,7 @@ function advancePhase() {
     return;
   }
   
-  if (currentPhase === 4) {
-    // Venceu o Jogo
-    showScripture("A Luz Venceu as Trevas para Sempre!");
-    setTimeout(() => gameOver("Obrigado por jogar! Você é o Supremo Salvador!"), 3000);
-    return;
-  }
+  if (currentPhase === 6) return; // Fica aqui pra sempre
   
   setTimeout(() => {
     initPhase(currentPhase + 1);
@@ -253,8 +290,8 @@ window.addEventListener('pointerup', () => {
   isDragging = false;
 }, { passive: false });
 
-btnStart.addEventListener('click', startGame);
-btnRestart.addEventListener('click', startGame);
+btnStart.addEventListener('click', () => startGame(0));
+btnRestart.addEventListener('click', handleRestart);
 
 function checkCuts() {
   if (bladePoints.length < 2) return;
@@ -266,7 +303,6 @@ function checkCuts() {
     
     let hit = false;
     const dist = Math.hypot(p2.x - t.x, p2.y - t.y);
-    // Hitbox da espada com os alvos
     if (dist < t.size/2 + 25) {
       hit = true;
     }
@@ -277,26 +313,29 @@ function checkCuts() {
       if (currentPhase === 3) {
         if (t.type === 0) {
           createCutEffect(t.x, t.y, "#ffffff");
-          innerRadius += 25; // 4 cortes fazem 1 planeta (4 * 25 = 100)
+          innerRadius += 25; 
           if (innerRadius >= 120) advancePhase();
         } else if (t.type === 1) {
           createSoulSalvationEffect(t.x, t.y);
         }
       } else if (currentPhase === 4) {
         if (t.type === 2) {
-          // Alma Salva
           createCutEffect(t.x, t.y, "#ffffff");
           createSoulSalvationEffect(t.x, t.y);
           sidesDrawn++;
-          scoreDisplay.innerText = "Almas Salvas: " + sidesDrawn + "/" + targetSides;
+          scoreDisplay.innerText = "Filhos Salvos: " + sidesDrawn + "/" + targetSides;
           if (sidesDrawn === targetSides) advancePhase();
         } else if (t.type === 3) {
-          // FILHO DA PERDIÇÃO CORTADO (BOMBA)
-          createExplosion(t.x, t.y, 4, "#ff0000"); // Explosao de sangue
-          gameOver("Você cortou a Perdição! A maldição te alcançou.");
+          createExplosion(t.x, t.y, 4, "#ff0000"); 
+          gameOver("Você cortou a Perdição! Seus filhos espirituais choram.");
         }
+      } else if (currentPhase === 5) {
+         createCutEffect(t.x, t.y, "#ffffff");
+         sidesDrawn++;
+         outerRadius += 40; 
+         scoreDisplay.innerText = "Filhos Guiados: " + sidesDrawn + "/" + targetSides;
+         if (sidesDrawn === targetSides) advancePhase();
       } else {
-        // Fases Normais
         createCutEffect(t.x, t.y, "#ffffff");
         sidesDrawn++;
         outerRadius += 30; 
@@ -324,7 +363,7 @@ function createSoulSalvationEffect(x, y) {
     particles.push({
       x: x, y: y,
       vx: (Math.random() - 0.5) * 5,
-      vy: -Math.random() * 8 - 4, // Sobe rápido para o céu
+      vy: -Math.random() * 8 - 4, 
       life: 1, size: 5, color: "#ffffff"
     });
   }
@@ -416,21 +455,15 @@ function drawUFO(ctx, size) {
 }
 
 function drawSoul(ctx, size) {
-  // Alma pálida
   ctx.fillStyle = "rgba(200, 230, 255, 0.9)";
-  ctx.shadowColor = "#ffffff";
-  ctx.shadowBlur = 20;
+  ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 20;
   ctx.beginPath(); ctx.arc(0, 0, size/3, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
 }
 
 function drawBomb(ctx, size) {
-  // Filho da Perdição (Bomba) - Forma agressiva
-  ctx.fillStyle = "#220000";
-  ctx.strokeStyle = "#ff0000";
-  ctx.lineWidth = 3;
-  ctx.shadowColor = "#ff0000";
-  ctx.shadowBlur = 15;
+  ctx.fillStyle = "#220000"; ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 3;
+  ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 15;
   
   ctx.beginPath();
   for (let i = 0; i < 8; i++) {
@@ -441,24 +474,51 @@ function drawBomb(ctx, size) {
     if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
 }
 
 const stars = Array.from({length: 150}, () => ({
   x: Math.random(), y: Math.random(), size: Math.random() * 2
 }));
 
+function spawnDancingGod() {
+  dancingGods.push({
+    x: Math.random() * cw,
+    y: Math.random() * ch,
+    vx: (Math.random() - 0.5) * 5,
+    vy: (Math.random() - 0.5) * 5,
+    size: Math.random() * 20 + 15,
+    hue: Math.random() * 60 + 30 // Dourados/Amarelos
+  });
+}
+
 function drawBackground() {
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, cw, ch);
   
-  // Só desenha estrelas nas fases que não são a Perdição
   if (currentPhase === 0 || currentPhase === 2 || currentPhase === 3) {
     ctx.fillStyle = (currentPhase === 2 || currentPhase === 3) ? "#ffd700" : "#ffffff";
     stars.forEach(s => {
       ctx.beginPath(); ctx.arc(s.x * cw, s.y * ch, s.size, 0, Math.PI*2); ctx.fill();
+    });
+  }
+  
+  if (currentPhase === 6) {
+    // Fogos de artifício eternos e deuses dançando
+    if (Math.random() < 0.05) createExplosion(Math.random() * cw, Math.random() * ch, 0, `hsl(${Math.random()*360}, 100%, 50%)`);
+    
+    dancingGods.forEach(g => {
+      g.x += g.vx; g.y += g.vy;
+      if (g.x < 0 || g.x > cw) g.vx *= -1;
+      if (g.y < 0 || g.y > ch) g.vy *= -1;
+      
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, g.size, 0, Math.PI*2);
+      ctx.fillStyle = `hsl(${g.hue}, 100%, 50%)`;
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 30;
+      ctx.fill();
+      ctx.shadowBlur = 0;
     });
   }
 }
@@ -479,26 +539,41 @@ function drawBladeTrail() {
 
 function gameLoop() {
   if (!isPlaying) return;
+  
+  // Nao precisa rodar a logica normal se for fase 6, só o fundo
+  if (currentPhase === 6) {
+    gameLoopId = requestAnimationFrame(gameLoop);
+    drawBackground();
+    updateAndDrawParticles();
+    drawBladeTrail();
+    return;
+  }
+  
   gameLoopId = requestAnimationFrame(gameLoop);
   const cx = cw / 2;
   const cy = ch / 2;
   
   // LÓGICA DE FASES
-  if (currentPhase < 3) {
+  if (currentPhase < 3 || currentPhase === 5) {
     outerRadius -= shrinkSpeed;
     if (outerRadius <= innerRadius) {
-      gameOver("A escuridão te engoliu.");
+      if (currentPhase === 5) gameOver("A escuridão engoliu seus filhos.");
+      else gameOver("A escuridão te engoliu.");
       return;
     }
   }
   
   // RESPAWN
   let spawnRate = 0.04;
-  if (currentPhase === 2) spawnRate = 0.08; // Nasce muito mais bolinhas no Celestial
+  if (currentPhase === 2) spawnRate = 0.08; 
   if (currentPhase === 3) spawnRate = 0.06;
   if (currentPhase === 4) spawnRate = 0.05;
+  if (currentPhase === 5) spawnRate = 0.08; 
   
-  if (Math.random() < spawnRate && floatingTargets.length < (currentPhase >= 3 ? 6 : 8)) {
+  let maxTargets = currentPhase >= 3 ? 6 : 8;
+  if (currentPhase === 5) maxTargets = 10;
+  
+  if (Math.random() < spawnRate && floatingTargets.length < maxTargets) {
     spawnTarget();
   }
   
@@ -512,16 +587,12 @@ function gameLoop() {
       continue;
     }
     
-    // Na fase 4, gravidade
-    if (currentPhase === 4) {
-       t.vy += 0.1; // Gravidade puxando pra baixo
-    }
+    if (currentPhase === 4) t.vy += 0.1; 
     
     t.x += t.vx;
     t.y += t.vy;
     t.angle += t.vAngle;
     
-    // Inimigos batendo no planeta (Fase 3)
     if (currentPhase === 3 && t.type === 1) {
        const distToCenter = Math.hypot(t.x - cx, t.y - cy);
        if (distToCenter < innerRadius + 10) {
@@ -536,7 +607,6 @@ function gameLoop() {
        }
     }
     
-    // Some se sair da tela (Na fase 4, some se cair no buraco embaixo)
     if (t.x < -100 || t.x > cw + 100 || t.y > ch + 100 || t.y < -100) {
       t.active = false;
       continue;
@@ -553,11 +623,9 @@ function gameLoop() {
         else drawCross(ctx, t.size);
       }
     } else if (currentPhase === 4) {
-      // Perdição
-      if (t.type === 2) drawSoul(ctx, t.size); // Alma pra salvar
-      if (t.type === 3) drawBomb(ctx, t.size); // Bomba pra fugir
+      if (t.type === 2) drawSoul(ctx, t.size); 
+      if (t.type === 3) drawBomb(ctx, t.size); 
     } else {
-      // Fases Normais
       const glowColor = currentPhase === 0 ? "#00ffff" : currentPhase === 1 ? "#ff00ff" : "#ffff00";
       ctx.shadowColor = glowColor; ctx.shadowBlur = 15;
       if (t.isOrb) {
@@ -572,17 +640,25 @@ function gameLoop() {
   updateAndDrawParticles();
   drawBladeTrail();
   
-  if (currentPhase < 3) {
+  if (currentPhase < 3 || currentPhase === 5) {
     const prisonColor = "#ff2222";
+    
+    // Prisão
     if (currentPhase === 0) drawPolygon(ctx, cx, cy, outerRadius, 3, 3, prisonColor, 8);
     else if (currentPhase === 1) drawPolygon(ctx, cx, cy, outerRadius, 4, 4, prisonColor, 8);
-    else if (currentPhase === 2) drawCircle(ctx, cx, cy, outerRadius, prisonColor, false);
+    else if (currentPhase === 2 || currentPhase === 5) drawCircle(ctx, cx, cy, outerRadius, prisonColor, false);
     
+    // Interior (Jogador ou Filhos sendo guiados)
     const playerColor = currentPhase === 0 ? "#00ffff" : currentPhase === 1 ? "#ff00ff" : "#ffff00";
     if (currentPhase === 2) {
       const currentRad = innerRadius + (sidesDrawn * 5);
       drawCircle(ctx, cx, cy, currentRad, playerColor, true);
       drawCircle(ctx, cx, cy, currentRad + 20, "#ffffff", false);
+    } else if (currentPhase === 5) {
+      // Deuses recém-nascidos no meio (as bolinhas)
+      const currentRad = innerRadius + (sidesDrawn * 5);
+      drawCircle(ctx, cx, cy, currentRad, "#ffffff", true); // Luz pura
+      drawCircle(ctx, cx, cy, currentRad + 30, "#00ffff", false); // Seu escudo protegendo-os
     } else {
       drawPolygon(ctx, cx, cy, innerRadius, targetSides, sidesDrawn, playerColor, 8);
     }
@@ -593,7 +669,5 @@ function gameLoop() {
       ctx.strokeStyle = `hsl(${(r * 10) % 360}, 100%, 50%)`; 
       ctx.lineWidth = 5; ctx.stroke();
     }
-  } else if (currentPhase === 4) {
-    // Fase 4: Sem prisão e sem centro, você só olha pro abismo (fundo já é preto)
   }
 }
