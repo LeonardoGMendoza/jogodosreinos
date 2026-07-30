@@ -187,6 +187,10 @@ window.addEventListener('pointerup', () => {
   isDragging = false;
 }, { passive: false });
 
+// BOTOES DE START E RESTART
+btnStart.addEventListener('click', startGame);
+btnRestart.addEventListener('click', startGame);
+
 // Interseção de linhas para saber se a espada cortou o palito
 function lineIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
   const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
@@ -465,3 +469,7 @@ function gameLoop() {
     drawPolygon(ctx, cx, cy, innerRadius, targetSides, sidesDrawn, playerColor, 8);
   }
 }
+
+// BOTOES DE START E RESTART
+btnStart.addEventListener('click', startGame);
+btnRestart.addEventListener('click', startGame);
