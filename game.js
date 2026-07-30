@@ -212,8 +212,12 @@ function startGame(startPhase = 0) {
   screenGameOver.classList.add('hidden');
   kingdomName.style.color = "white"; 
   isPlaying = true;
+  
+  // Cancela o loop antigo se houver para evitar loops duplicados
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  
   initPhase(startPhase);
-  if (!gameLoopId) gameLoop();
+  gameLoop();
 }
 
 function handleRestart() {
@@ -227,7 +231,7 @@ function handleRestart() {
 
 function gameOver(reason) {
   isPlaying = false;
-  // cancelAnimationFrame(gameLoopId); // Nao vamos cancelar para o fundo continuar animando sutilmente se quisermos, mas ok cancelar
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
   if (deathReason) deathReason.innerText = reason || "A escuridão venceu.";
