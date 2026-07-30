@@ -324,7 +324,7 @@ function checkCuts() {
           createSoulSalvationEffect(t.x, t.y);
           sidesDrawn++;
           scoreDisplay.innerText = "Filhos Salvos: " + sidesDrawn + "/" + targetSides;
-          if (sidesDrawn === targetSides) advancePhase();
+          if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
         } else if (t.type === 3) {
           createExplosion(t.x, t.y, 4, "#ff0000"); 
           gameOver("Você cortou a Perdição! Seus filhos espirituais choram.");
@@ -334,12 +334,12 @@ function checkCuts() {
          sidesDrawn++;
          outerRadius += 40; 
          scoreDisplay.innerText = "Filhos Guiados: " + sidesDrawn + "/" + targetSides;
-         if (sidesDrawn === targetSides) advancePhase();
+         if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
       } else {
         createCutEffect(t.x, t.y, "#ffffff");
         sidesDrawn++;
         outerRadius += 30; 
-        if (sidesDrawn === targetSides) advancePhase();
+        if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
       }
     }
   });
