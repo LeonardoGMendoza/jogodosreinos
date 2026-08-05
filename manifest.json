@@ -1,0 +1,22 @@
+{
+  "name": "A Jornada dos Reinos",
+  "short_name": "Jogo dos Reinos",
+  "description": "Jogo de ação 2D cósmico e fatiamento.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050510",
+  "theme_color": "#050510",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
