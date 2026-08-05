@@ -1,3 +1,7 @@
+import { playSliceSFX, playSoulSFX, playExplosionSFX, playBossHitSFX, playVictorySFX } from './sfx.js';
+import { ShopManager } from './shop.js';
+import { CelestialSandbox } from './sandbox.js';
+
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -9,192 +13,197 @@ window.addEventListener('resize', () => {
   ch = canvas.height = window.innerHeight;
 });
 
-// Elementos da UI
+// Managers
+const shopManager = new ShopManager();
+let sandbox = null;
+
+// UI Elements
 const screenMenu = document.getElementById('screen-menu');
 const screenGameOver = document.getElementById('screen-gameover');
+const screenShop = document.getElementById('screen-shop');
+const screenSandboxUI = document.getElementById('screen-sandbox-ui');
 const uiContainer = document.getElementById('ui-container');
 const btnStart = document.getElementById('btn-start');
 const btnRestart = document.getElementById('btn-restart');
+const btnShop = document.getElementById('btn-shop');
+const btnCloseShop = document.getElementById('btn-close-shop');
+const btnSandbox = document.getElementById('btn-sandbox');
 const scoreDisplay = document.getElementById('score');
 const finalScoreDisplay = document.getElementById('final-score');
 const kingdomName = document.getElementById('kingdom-name');
 const scripturePopup = document.getElementById('scripture-popup');
 const scriptureText = document.getElementById('scripture-text');
+const bossHealthBarContainer = document.getElementById('boss-health-container');
+const bossHealthFill = document.getElementById('boss-health-fill');
+const bossNameDisplay = document.getElementById('boss-name');
+const coinsCountDisplay = document.getElementById('coins-count');
 
-// Áudios
-const bgmTelestial = new Audio('hino_telestial.mp3');
-const bgmTerrestrial = new Audio('hino_terrestre.mp3');
-const bgmCelestial = new Audio('hino_celestial.mp3');
-[bgmTelestial, bgmTerrestrial, bgmCelestial].forEach(audio => {
-  audio.loop = true;
-  audio.volume = 0.5;
-});
-
-// Estado do Jogo
+// Game State
 let isPlaying = false;
-let currentPhase = 0; 
+let currentPhase = 0; // 0 to 9 (10 Fases)
 let sidesDrawn = 0;
-let targetSides = 3;
+let targetSides = 5;
 let outerRadius = 0;
 let innerRadius = 60;
 let shrinkSpeed = 0;
 let gameLoopId;
 let particles = [];
-let backgroundColor = "#0a0a1a";
+let backgroundColor = "#050510";
 
-let planetsCreated = 0;
-const PLANETS_TO_WIN = 3;
-let highestPhaseReached = 0;
+// Boss State (Fase 9 - Dragão das Trevas)
+let boss = null;
+let bossPhaseStep = 0; // 0: Asas, 1: Cabeça, 2: Cauda, 3: Coração
 
-// Mecânica de Corte (Blade)
+// Blade mechanics
 let isDragging = false;
 let bladePoints = [];
 let floatingTargets = [];
-let dancingGods = []; // Para a Fase 6
 
-const scriptures = [
-  "Glória das Estrelas: Lute contra a escuridão!",
-  "Glória da Lua: A prisão acelera!",
-  "Glória do Sol: Absorva a Luz Perfeita!",
-  "Deus Criador: Organize a matéria e defenda seu mundo!",
-  "Trevas Exteriores: Resgate seus filhos espirituais. CUIDADO COM A PERDIÇÃO!",
-  "Guiando os Filhos: Ajude-os a passar pelas provações rapidamente!",
-  "A Exaltação Eterna: Famílias para sempre. A glória não tem fim!"
+// Scriptures & Chapter Descriptions
+const CHAPTER_TITLES = [
+  "FASE 1: A GLÓRIA DAS ESTRELAS ⭐",
+  "FASE 2: A GLÓRIA DA LUA 🌙",
+  "FASE 3: A GLÓRIA DO SOL ☀️",
+  "FASE 4: A GUERRA NO CÉU ⚡",
+  "FASE 5: A CRIAÇÃO DO MUNDO 🌊",
+  "FASE 6: CRIADOR DE PLANETAS 🪐",
+  "FASE 7: A PROVAÇÃO DA MORTALIDADE ⏳",
+  "FASE 8: RESGATE DOS 15 FILHOS 🕊️",
+  "FASE 9: O JULGAMENTO DA BALANÇA ⚖️",
+  "FASE 10: O DRAGÃO DAS TREVAS 🐉"
 ];
 
-function unlockAudio() {
-  bgmTelestial.load();
-  bgmTerrestrial.load();
-  bgmCelestial.load();
-  document.removeEventListener('pointerdown', unlockAudio);
+const scriptures = [
+  "Capítulo 1: Conheça seus primeiros filhos espirituais. Aprenda a fatiar!",
+  "Capítulo 1: Os desafios aumentam. Cuidado com as primeiras tentações!",
+  "Capítulo 1: Glória do Sol! Domine a espada e realize milagres de luz!",
+  "Capítulo 2: Enfrente as sombras e anjos rebeldes! Lúcifer espreita!",
+  "Capítulo 3: Fatie a matéria caótica para criar oceanos e montanhas!",
+  "Capítulo 3: Organize os planetas e defenda sua criação divina!",
+  "Capítulo 4: Mortalidade! Proteja os filhos das doenças e guerras!",
+  "Capítulo 4: Resgate os 15 filhos espirituais! Eles marcharão com você!",
+  "Capítulo 5: O Julgamento diante do Trono! Equilibre a Balança Celestial!",
+  "Capítulo 6: O DRAGÃO DAS TREVAS! Fatie as meteoros e destrua o Coração do Boss!"
+];
+
+function updateCoinsDisplay() {
+  if (coinsCountDisplay) coinsCountDisplay.innerText = shopManager.getCoins();
 }
-document.addEventListener('pointerdown', unlockAudio);
 
 function spawnTarget() {
   let x, y, vx, vy;
-  let type = 0; 
+  let type = 0; // 0: Normal, 1: Alma, 2: Perdição/Bomba, 3: Meteoro, 4: Matéria
   let size = 60;
-  let shapeType = 0;
-  let isOrb = false;
   
-  if (currentPhase === 3) { // Deus
-    size = 70;
-    const angle = Math.random() * Math.PI * 2;
-    const spawnRadius = Math.max(cw, ch) * 0.5 + 50; // Mais próximo da tela
-    x = cw/2 + Math.cos(angle) * spawnRadius;
-    y = ch/2 + Math.sin(angle) * spawnRadius;
-    const speed = Math.random() * 2 + 1.5;
-    vx = -Math.cos(angle) * speed;
-    vy = -Math.sin(angle) * speed;
-    type = Math.random() > 0.6 ? 1 : 0; 
-    shapeType = Math.floor(Math.random() * 2);
-  } else if (currentPhase === 4) { // Perdição
-    size = 50;
+  if (currentPhase === 3) { // Guerra no Céu (Lúcifer)
+    type = Math.random() > 0.6 ? 2 : 0;
+    size = 55;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
     y = ch + 50;
     vx = (Math.random() - 0.5) * 4;
-    vy = - (Math.random() * 4 + 8); 
-    type = Math.random() > 0.7 ? 3 : 2; // 2=Filho Espiritual(Alma), 3=Filho da Perdição(Bomba)
-    isOrb = (type === 2);
-  } else if (currentPhase === 5) { // Guiando os Filhos (Turbo)
-    size = 40;
-    isOrb = true;
+    vy = - (Math.random() * 4 + 7);
+  } else if (currentPhase === 4) { // Criação (Matéria)
+    type = 4;
+    size = 70;
     x = Math.random() < 0.5 ? -50 : cw + 50;
-    y = Math.random() * ch * 0.7 + (ch * 0.15);
-    vx = (x < 0 ? 1 : -1) * (Math.random() * 3 + 2.5); // Bem rápido
-    vy = (Math.random() - 0.5) * 4;
-    type = 0;
-  } else if (currentPhase === 6) {
-    // Festa dos deuses (nao spawna alvos fatiáveis normais)
-    return;
-  } else {
-    // Modo Normal (0, 1, 2)
-    size = currentPhase === 2 ? 40 : 80;
-    isOrb = currentPhase === 2;
+    y = Math.random() * ch * 0.6 + (ch * 0.2);
+    vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 2);
+    vy = (Math.random() - 0.5) * 3;
+  } else if (currentPhase === 7) { // Resgate dos 15 Filhos
+    type = 1;
+    size = 50;
+    x = Math.random() * cw * 0.8 + (cw * 0.1);
+    y = ch + 50;
+    vx = (Math.random() - 0.5) * 3;
+    vy = - (Math.random() * 3 + 6);
+  } else if (currentPhase === 9) { // Boss Dragão
+    type = Math.random() > 0.5 ? 3 : 2; // Meteoro ou Fogo/Bomba
+    size = 65;
+    x = Math.random() * cw * 0.8 + (cw * 0.1);
+    y = -50;
+    vx = (Math.random() - 0.5) * 3;
+    vy = Math.random() * 4 + 4;
+  } else { // Normal (0, 1, 2, 5, 6, 8)
+    type = (currentPhase >= 6 && Math.random() > 0.75) ? 2 : 0;
+    size = 55;
     x = Math.random() < 0.5 ? -50 : cw + 50;
     y = Math.random() * ch * 0.7 + (ch * 0.15);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.5);
     vy = (Math.random() - 0.5) * 3;
-    type = 0;
   }
-  
+
   floatingTargets.push({
     x: x, y: y, vx: vx, vy: vy,
-    angle: Math.random() * Math.PI,
-    vAngle: (Math.random() - 0.5) * 0.05,
-    size: size,
-    isOrb: isOrb,
-    type: type, 
-    shapeType: shapeType,
-    active: true
+    size: size, type: type, active: true,
+    rotation: 0, vRotation: (Math.random() - 0.5) * 0.08
   });
 }
 
 function initPhase(phase) {
   currentPhase = phase;
-  if (phase > highestPhaseReached) highestPhaseReached = phase;
-  
   sidesDrawn = 0;
   outerRadius = Math.max(cw, ch) * 0.8;
-  innerRadius = (phase === 3) ? 20 : 60;
+  innerRadius = 60;
   particles = [];
   floatingTargets = [];
   bladePoints = [];
-  dancingGods = [];
   
-  bgmTelestial.pause();
-  bgmTerrestrial.pause();
-  bgmCelestial.pause();
-  
-  kingdomName.style.color = "white"; // reseta
-  
+  if (bossHealthBarContainer) bossHealthBarContainer.classList.add('hidden');
+
   if (phase === 0) {
-    targetSides = 3; shrinkSpeed = 1.0; backgroundColor = "#050510"; kingdomName.innerText = "REINO TELESTIAL";
-    planetsCreated = 0; bgmTelestial.play().catch(()=>{});
+    targetSides = 5; shrinkSpeed = 0.8; backgroundColor = "#050512";
   } else if (phase === 1) {
-    targetSides = 4; shrinkSpeed = 1.2; backgroundColor = "#1a1a2e"; kingdomName.innerText = "REINO TERRESTRE";
-    bgmTerrestrial.play().catch(()=>{});
+    targetSides = 8; shrinkSpeed = 1.0; backgroundColor = "#100b24";
   } else if (phase === 2) {
-    targetSides = 10; shrinkSpeed = 1.5; backgroundColor = "#331100"; kingdomName.innerText = "REINO CELESTIAL";
-    bgmCelestial.play().catch(()=>{});
-  } else if (phase === 3) {
-    shrinkSpeed = 0; backgroundColor = "#000005"; kingdomName.innerText = "CRIADOR DE MUNDOS";
-    bgmCelestial.play().catch(()=>{});
-  } else if (phase === 4) {
-    targetSides = 15; shrinkSpeed = 0; backgroundColor = "#000000"; 
-    kingdomName.innerText = "TREVAS EXTERIORES (PERDIÇÃO)";
-    kingdomName.style.color = "#ff3333";
-    bgmTerrestrial.play().catch(()=>{}); 
-  } else if (phase === 5) {
-    targetSides = 15; shrinkSpeed = 3.0; // Prisão volta e é rápida!
-    backgroundColor = "#110022"; kingdomName.innerText = "GUIANDO SEUS FILHOS";
-    bgmTelestial.play().catch(()=>{}); 
-  } else if (phase === 6) {
-    shrinkSpeed = 0; backgroundColor = "#ffffaa"; // Dourado claro brilhante
-    kingdomName.innerText = "A FESTA DOS DEUSES";
-    kingdomName.style.color = "#885500";
-    bgmCelestial.play().catch(()=>{});
-    for(let i=0; i<30; i++) spawnDancingGod();
+    targetSides = 10; shrinkSpeed = 1.2; backgroundColor = "#2b1400";
+  } else if (phase === 3) { // Guerra no Céu
+    targetSides = 12; shrinkSpeed = 1.3; backgroundColor = "#150000";
+  } else if (phase === 4) { // Criação
+    targetSides = 10; shrinkSpeed = 0.9; backgroundColor = "#001a15";
+  } else if (phase === 5) { // Planetas
+    targetSides = 12; shrinkSpeed = 1.1; backgroundColor = "#05152b";
+  } else if (phase === 6) { // Mortalidade
+    targetSides = 12; shrinkSpeed = 1.4; backgroundColor = "#1a0515";
+  } else if (phase === 7) { // Resgate 15 Filhos
+    targetSides = 15; shrinkSpeed = 1.0; backgroundColor = "#110022";
+  } else if (phase === 8) { // Julgamento
+    targetSides = 12; shrinkSpeed = 1.2; backgroundColor = "#201a00";
+  } else if (phase === 9) { // Boss Dragão das Trevas
+    targetSides = 1; shrinkSpeed = 0.5; backgroundColor = "#0a0005";
+    initBoss();
   }
-  
-  if (phase < 3) {
-    scoreDisplay.innerText = "Nível " + (phase + 1);
-  } else if (phase === 3) {
-    scoreDisplay.innerText = "Planetas: " + planetsCreated + "/" + PLANETS_TO_WIN;
-  } else if (phase === 4) {
-    scoreDisplay.innerText = "Filhos Salvos: 0/" + targetSides;
-  } else if (phase === 5) {
-    scoreDisplay.innerText = "Filhos Guiados: 0/" + targetSides;
-  } else if (phase === 6) {
-    scoreDisplay.innerText = "Infinito";
-  }
-  
+
+  kingdomName.innerText = CHAPTER_TITLES[phase];
+  scoreDisplay.innerText = `Progresso: 0/${targetSides}`;
   uiContainer.classList.remove('hidden');
   showScripture(scriptures[phase]);
-  
-  if (phase !== 6) {
-    for(let i=0; i<3; i++) spawnTarget();
+
+  if (phase !== 9) {
+    for (let i = 0; i < 4; i++) spawnTarget();
   }
+}
+
+function initBoss() {
+  bossHealthBarContainer.classList.remove('hidden');
+  bossNameDisplay.innerText = "DRAGÃO DAS TREVAS";
+  bossPhaseStep = 0;
+  
+  boss = {
+    x: cw / 2,
+    y: ch * 0.3,
+    maxHp: 100,
+    hp: 100,
+    partName: "ASAS DAS TREVAS",
+    weakPointRadius: 70
+  };
+  updateBossUI();
+}
+
+function updateBossUI() {
+  if (!boss) return;
+  const pct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+  bossHealthFill.style.width = `${pct}%`;
+  bossNameDisplay.innerText = `DRAGÃO DAS TREVAS (${boss.partName})`;
 }
 
 function showScripture(text) {
@@ -204,29 +213,21 @@ function showScripture(text) {
   setTimeout(() => {
     scripturePopup.style.opacity = 0;
     setTimeout(() => scripturePopup.classList.add('hidden'), 500);
-  }, 3000);
+  }, 3500);
 }
 
 function startGame(startPhase = 0) {
   screenMenu.classList.add('hidden');
   screenGameOver.classList.add('hidden');
-  kingdomName.style.color = "white"; 
-  isPlaying = true;
+  screenShop.classList.add('hidden');
+  screenSandboxUI.classList.add('hidden');
+  if (sandbox) sandbox.stop();
   
-  // Cancela o loop antigo se houver para evitar loops duplicados
+  isPlaying = true;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
   
   initPhase(startPhase);
   gameLoop();
-}
-
-function handleRestart() {
-  // Checkpoint: Se já foi Deus (Fase 3 ou mais), volta pro modo Deus ao invés da Fase 0.
-  if (highestPhaseReached >= 3) {
-    startGame(3);
-  } else {
-    startGame(0);
-  }
 }
 
 function gameOver(reason) {
@@ -235,53 +236,58 @@ function gameOver(reason) {
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
   if (deathReason) deathReason.innerText = reason || "A escuridão venceu.";
-  
-  if (currentPhase < 3) finalScoreDisplay.innerText = "Fase " + (currentPhase + 1);
-  else if (currentPhase === 3) finalScoreDisplay.innerText = planetsCreated + " Planetas";
-  else if (currentPhase === 4) finalScoreDisplay.innerText = sidesDrawn + " Filhos Salvos";
-  else if (currentPhase === 5) finalScoreDisplay.innerText = sidesDrawn + " Filhos Guiados";
-  
+  finalScoreDisplay.innerText = `Alcançou: ${CHAPTER_TITLES[currentPhase]}`;
   uiContainer.classList.add('hidden');
 }
 
-function advancePhase() {
-  createExplosion(cw/2, ch/2, currentPhase);
-  outerRadius += 500;
-  
-  if (currentPhase === 3) {
-    planetsCreated++;
-    scoreDisplay.innerText = "Planetas: " + planetsCreated + "/" + PLANETS_TO_WIN;
-    innerRadius = 20; 
-    floatingTargets = [];
-    
-    if (planetsCreated >= PLANETS_TO_WIN) {
-      setTimeout(() => initPhase(4), 1000);
-    } else {
-      showScripture("Mundo Criado! Haja Luz!");
-    }
-    return;
-  }
-  
-  if (currentPhase === 6) return; // Fica aqui pra sempre
-  
-  setTimeout(() => {
-    initPhase(currentPhase + 1);
-  }, 1000);
+function winGame() {
+  isPlaying = false;
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  playVictorySFX();
+  shopManager.addCoins(200);
+  updateCoinsDisplay();
+
+  // Ativa o Modo Sandbox Celestial
+  sandbox = new CelestialSandbox(canvas, ctx);
+  sandbox.start();
+
+  uiContainer.classList.add('hidden');
+  screenSandboxUI.classList.remove('hidden');
 }
 
-// ---- INPUT DA ESPADA ----
+function advancePhase() {
+  createExplosion(cw / 2, ch / 2, "#FFD700");
+  playVictorySFX();
+  shopManager.addCoins(30);
+  updateCoinsDisplay();
 
+  if (currentPhase >= 9) {
+    winGame();
+    return;
+  }
+
+  setTimeout(() => {
+    initPhase(currentPhase + 1);
+  }, 1200);
+}
+
+// Interação e Corte (Blade)
 function updateBlade(x, y) {
-  bladePoints.push({x: x, y: y, time: Date.now()});
-  if (bladePoints.length > 8) bladePoints.shift();
+  bladePoints.push({ x: x, y: y, time: Date.now() });
+  if (bladePoints.length > 10) bladePoints.shift();
+  playSliceSFX();
   checkCuts();
 }
 
 window.addEventListener('pointerdown', (e) => {
+  if (sandbox && sandbox.active) {
+    sandbox.addObject(e.clientX, e.clientY);
+    return;
+  }
   if (!isPlaying) return;
   e.preventDefault();
   isDragging = true;
-  bladePoints = [{x: e.clientX, y: e.clientY, time: Date.now()}];
+  bladePoints = [{ x: e.clientX, y: e.clientY, time: Date.now() }];
 }, { passive: false });
 
 window.addEventListener('pointermove', (e) => {
@@ -294,98 +300,273 @@ window.addEventListener('pointerup', () => {
   isDragging = false;
 }, { passive: false });
 
+// Botões da Interface
 btnStart.addEventListener('click', () => startGame(0));
-btnRestart.addEventListener('click', handleRestart);
+btnRestart.addEventListener('click', () => startGame(0));
+
+if (btnShop) {
+  btnShop.addEventListener('click', () => {
+    screenMenu.classList.add('hidden');
+    screenShop.classList.remove('hidden');
+    renderShopItems();
+  });
+}
+
+if (btnCloseShop) {
+  btnCloseShop.addEventListener('click', () => {
+    screenShop.classList.add('hidden');
+    screenMenu.classList.remove('hidden');
+  });
+}
+
+if (btnSandbox) {
+  btnSandbox.addEventListener('click', () => {
+    screenMenu.classList.add('hidden');
+    winGame();
+  });
+}
+
+// Loja Renders
+function renderShopItems() {
+  const container = document.getElementById('shop-items-container');
+  if (!container) return;
+  container.innerHTML = '';
+  updateCoinsDisplay();
+
+  const equipped = shopManager.getEquippedBlade();
+
+  shopManager.unlockedBlades.forEach(); // update status
+  
+  import('./shop.js').then(module => {
+    module.BLADES.forEach(b => {
+      const card = document.createElement('div');
+      card.className = `shop-card ${equipped.id === b.id ? 'equipped' : ''}`;
+      
+      const isUnlocked = b.unlocked;
+      
+      card.innerHTML = `
+        <div class="shop-icon">${b.icon}</div>
+        <div class="shop-name">${b.name}</div>
+        <div class="shop-desc">${b.description}</div>
+        <button class="shop-btn ${isUnlocked ? 'unlocked' : ''}">
+          ${equipped.id === b.id ? 'EM USO' : isUnlocked ? 'EQUIPAR' : `COMPRAR (${b.price} ⭐)`}
+        </button>
+      `;
+
+      const btn = card.querySelector('.shop-btn');
+      btn.addEventListener('click', () => {
+        if (!isUnlocked) {
+          const res = shopManager.buyBlade(b.id);
+          alert(res.message);
+          renderShopItems();
+        } else {
+          shopManager.equipBlade(b.id);
+          renderShopItems();
+        }
+      });
+
+      container.appendChild(card);
+    });
+  });
+}
 
 function checkCuts() {
   if (bladePoints.length < 2) return;
   const p1 = bladePoints[bladePoints.length - 2];
   const p2 = bladePoints[bladePoints.length - 1];
-  
+  const blade = shopManager.getEquippedBlade();
+
+  // Teste de colisão no Boss (Fase 9)
+  if (currentPhase === 9 && boss) {
+    const distBoss = Math.hypot(p2.x - boss.x, p2.y - boss.y);
+    if (distBoss < boss.weakPointRadius + 30) {
+      boss.hp -= 8;
+      playBossHitSFX();
+      createCutEffect(boss.x, boss.y, blade.particleColor);
+      updateBossUI();
+
+      if (boss.hp <= 0) {
+        bossPhaseStep++;
+        if (bossPhaseStep === 1) {
+          boss.partName = "CABEÇA DO DRAGÃO";
+          boss.hp = boss.maxHp = 100;
+          showScripture("Asas cortadas! Agora fatie a Cabeça do Dragão!");
+        } else if (bossPhaseStep === 2) {
+          boss.partName = "CAUDA DAS TREVAS";
+          boss.hp = boss.maxHp = 100;
+          showScripture("Cabeça destruída! Fatie a Cauda!");
+        } else if (bossPhaseStep === 3) {
+          boss.partName = "CORAÇÃO DAS TREVAS";
+          boss.hp = boss.maxHp = 100;
+          showScripture("GOLPE FINAL! CORTE O CORAÇÃO!");
+        } else {
+          advancePhase();
+        }
+      }
+    }
+  }
+
   floatingTargets.forEach(t => {
     if (!t.active) return;
-    
-    let hit = false;
     const dist = Math.hypot(p2.x - t.x, p2.y - t.y);
-    if (dist < t.size/2 + 25) {
-      hit = true;
-    }
-    
-    if (hit) {
+    if (dist < t.size / 2 + 25) {
       t.active = false;
       
-      if (currentPhase === 3) {
-        if (t.type === 0) {
-          createCutEffect(t.x, t.y, "#ffffff");
-          innerRadius += 25; 
-          if (innerRadius >= 120) advancePhase();
-        } else if (t.type === 1) {
-          createSoulSalvationEffect(t.x, t.y);
-        }
-      } else if (currentPhase === 4) {
-        if (t.type === 2) {
-          createCutEffect(t.x, t.y, "#ffffff");
-          createSoulSalvationEffect(t.x, t.y);
-          sidesDrawn++;
-          scoreDisplay.innerText = "Filhos Salvos: " + sidesDrawn + "/" + targetSides;
-          if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
-        } else if (t.type === 3) {
-          createExplosion(t.x, t.y, 4, "#ff0000"); 
-          gameOver("Você cortou a Perdição! Seus filhos espirituais choram.");
-        }
-      } else if (currentPhase === 5) {
-         createCutEffect(t.x, t.y, "#ffffff");
-         sidesDrawn++;
-         outerRadius += 40; 
-         scoreDisplay.innerText = "Filhos Guiados: " + sidesDrawn + "/" + targetSides;
-         if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
-      } else {
-        createCutEffect(t.x, t.y, "#ffffff");
+      if (t.type === 2) { // Bomba / Perdição
+        playExplosionSFX();
+        createExplosion(t.x, t.y, "#FF0000");
+        gameOver("Você cortou a Perdição! Seus filhos espirituais choram.");
+      } else if (t.type === 1) { // Alma / Filho Espiritual
+        playSoulSFX();
+        createSoulSalvationEffect(t.x, t.y);
         sidesDrawn++;
-        outerRadius += 30; 
-        if (sidesDrawn >= targetSides && sidesDrawn - 1 < targetSides) advancePhase();
+        outerRadius += 30;
+        scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides}`;
+        if (sidesDrawn >= targetSides) advancePhase();
+      } else { // Normal / Meteoro / Matéria
+        playSliceSFX();
+        createCutEffect(t.x, t.y, blade.particleColor);
+        sidesDrawn++;
+        outerRadius += 25;
+        scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides}`;
+        if (sidesDrawn >= targetSides) advancePhase();
       }
     }
   });
 }
 
-// ---- RENDERIZAÇÃO ----
-
 function createCutEffect(x, y, color) {
-  for(let i=0; i<20; i++) {
+  for (let i = 0; i < 15; i++) {
     particles.push({
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 15,
-      vy: (Math.random() - 0.5) * 15,
-      life: 1, size: 4, color: color
+      vx: (Math.random() - 0.5) * 12,
+      vy: (Math.random() - 0.5) * 12,
+      life: 1, size: 4, color: color || "#FFD700"
     });
   }
 }
 
 function createSoulSalvationEffect(x, y) {
-  for(let i=0; i<20; i++) {
+  for (let i = 0; i < 20; i++) {
     particles.push({
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 5,
-      vy: -Math.random() * 8 - 4, 
-      life: 1, size: 5, color: "#ffffff"
+      vx: (Math.random() - 0.5) * 6,
+      vy: -Math.random() * 8 - 3,
+      life: 1, size: 5, color: "#FFF8DC"
     });
   }
 }
 
-function createExplosion(x, y, phase, forceColor) {
-  const color = forceColor || (phase === 0 ? "#00ffff" : phase === 1 ? "#ff00ff" : "#ffff00");
-  for(let i=0; i<80; i++) {
+function createExplosion(x, y, color) {
+  for (let i = 0; i < 60; i++) {
     particles.push({
       x: x, y: y,
-      vx: (Math.random() - 0.5) * 35,
-      vy: (Math.random() - 0.5) * 35,
-      life: 1, size: Math.random() * 6 + 2, color: color
+      vx: (Math.random() - 0.5) * 30,
+      vy: (Math.random() - 0.5) * 30,
+      life: 1, size: Math.random() * 6 + 2, color: color || "#FF4500"
     });
   }
 }
 
-function updateAndDrawParticles() {
+function gameLoop() {
+  if (sandbox && sandbox.active) {
+    sandbox.updateAndRender();
+    gameLoopId = requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (!isPlaying) return;
+
+  // Fundo
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, cw, ch);
+
+  // Prisão do Mundo (Bordas encolhendo)
+  outerRadius -= shrinkSpeed;
+  if (outerRadius < innerRadius + 20) {
+    gameOver("A Prisão do Mundo se fechou completamente!");
+    return;
+  }
+
+  // Desenha a Prisão
+  ctx.strokeStyle = "rgba(255, 50, 50, 0.6)";
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(cw / 2, ch / 2, outerRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Spawna alvos periodicamente
+  if (Math.random() < 0.04 && floatingTargets.length < 5 && currentPhase !== 9) {
+    spawnTarget();
+  }
+
+  // Se for Boss Dragão, desenha o Dragão no topo
+  if (currentPhase === 9 && boss) {
+    ctx.save();
+    ctx.translate(boss.x, boss.y);
+    ctx.shadowColor = "#FF0000";
+    ctx.shadowBlur = 30;
+    
+    // Corpo do Dragão
+    ctx.fillStyle = "#330005";
+    ctx.beginPath();
+    ctx.arc(0, 0, boss.weakPointRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#FF0000";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Olhos do Dragão
+    ctx.fillStyle = "#FFD700";
+    ctx.beginPath();
+    ctx.arc(-25, -15, 10, 0, Math.PI * 2);
+    ctx.arc(25, -15, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Atualiza e Desenha Alvos Fatiáveis
+  for (let i = floatingTargets.length - 1; i >= 0; i--) {
+    let t = floatingTargets[i];
+    t.x += t.vx;
+    t.y += t.vy;
+    t.rotation += t.vRotation;
+
+    if (t.x < -100 || t.x > cw + 100 || t.y < -100 || t.y > ch + 100) {
+      floatingTargets.splice(i, 1);
+      continue;
+    }
+
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(t.rotation);
+
+    if (t.type === 2) { // Bomba / Perdição
+      ctx.fillStyle = "#8B0000";
+      ctx.shadowColor = "#FF0000";
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (t.type === 1) { // Alma / Filho Espiritual
+      ctx.fillStyle = "#FFF8DC";
+      ctx.shadowColor = "#FFD700";
+      ctx.shadowBlur = 20;
+      ctx.beginPath();
+      ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else { // Normal
+      ctx.fillStyle = "#00FFFF";
+      ctx.shadowColor = "#00BFFF";
+      ctx.shadowBlur = 15;
+      ctx.fillRect(-t.size / 2, -t.size / 2, t.size, t.size);
+    }
+
+    ctx.restore();
+  }
+
+  // Partículas
   for (let i = particles.length - 1; i >= 0; i--) {
     let p = particles[i];
     p.x += p.vx;
@@ -396,284 +577,42 @@ function updateAndDrawParticles() {
       continue;
     }
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2);
+    ctx.arc(p.x, p.y, Math.max(1, p.size * p.life), 0, Math.PI * 2);
     ctx.fillStyle = p.color;
     ctx.fill();
   }
-}
 
-function drawPolygon(ctx, x, y, radius, sides, progress, color, lineWidth) {
-  if (sides < 3 && currentPhase < 2) {
-    ctx.beginPath(); ctx.moveTo(x, y - radius);
-    if (sides > 0) ctx.lineTo(x + radius * Math.cos(Math.PI/6), y + radius * Math.sin(Math.PI/6));
-    if (sides > 1) ctx.lineTo(x - radius * Math.cos(Math.PI/6), y + radius * Math.sin(Math.PI/6));
-    ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.stroke();
-    return;
-  }
-  ctx.beginPath();
-  const angleStep = (Math.PI * 2) / sides;
-  const offset = sides === 4 ? Math.PI/4 : -Math.PI/2;
-  for (let i = 0; i <= sides; i++) {
-    if (i > progress) break;
-    const currentAngle = offset + i * angleStep;
-    const px = x + Math.cos(currentAngle) * radius;
-    const py = y + Math.sin(currentAngle) * radius;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineJoin = 'round';
-  ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.stroke(); ctx.shadowBlur = 0;
-}
-
-function drawCircle(ctx, x, y, radius, color, isSolid = false) {
-  ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
-  if (isSolid) {
-    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 30; ctx.fill();
-  } else {
-    ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.stroke();
-  }
-  ctx.shadowBlur = 0;
-}
-
-function drawWheel(ctx, size) {
-  const colors = ["#ff00ff", "#00ffff", "#ffff00", "#800080"];
-  ctx.lineWidth = 8;
-  for(let i=0; i<4; i++){
-    ctx.beginPath(); ctx.arc(0, 0, size/2, (Math.PI/2)*i, (Math.PI/2)*(i+1)); ctx.strokeStyle = colors[i]; ctx.stroke();
-  }
-}
-
-function drawCross(ctx, size) {
-  const colors = ["#ff00ff", "#00ffff", "#ffff00", "#800080"];
-  ctx.lineWidth = 8; const l = size/2; ctx.lineCap = "round";
-  ctx.strokeStyle = colors[0]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,-l); ctx.stroke();
-  ctx.strokeStyle = colors[1]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(l,0); ctx.stroke();
-  ctx.strokeStyle = colors[2]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(0,l); ctx.stroke();
-  ctx.strokeStyle = colors[3]; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-l,0); ctx.stroke();
-}
-
-function drawUFO(ctx, size) {
-  ctx.fillStyle = "#111111"; ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 15;
-  ctx.beginPath(); ctx.ellipse(0, 0, size/2, size/4, 0, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = "#ff0000"; ctx.beginPath(); ctx.arc(0, -size/8, size/8, 0, Math.PI*2); ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-function drawSoul(ctx, size) {
-  ctx.fillStyle = "rgba(200, 230, 255, 0.9)";
-  ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 20;
-  ctx.beginPath(); ctx.arc(0, 0, size/3, 0, Math.PI*2); ctx.fill();
-  ctx.shadowBlur = 0;
-}
-
-function drawBomb(ctx, size) {
-  ctx.fillStyle = "#220000"; ctx.strokeStyle = "#ff0000"; ctx.lineWidth = 3;
-  ctx.shadowColor = "#ff0000"; ctx.shadowBlur = 15;
-  
-  ctx.beginPath();
-  for (let i = 0; i < 8; i++) {
-    const angle = (Math.PI / 4) * i;
-    const r = (i % 2 === 0) ? size/2 : size/4;
-    const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-  ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
-}
-
-const stars = Array.from({length: 150}, () => ({
-  x: Math.random(), y: Math.random(), size: Math.random() * 2
-}));
-
-function spawnDancingGod() {
-  dancingGods.push({
-    x: Math.random() * cw,
-    y: Math.random() * ch,
-    vx: (Math.random() - 0.5) * 5,
-    vy: (Math.random() - 0.5) * 5,
-    size: Math.random() * 20 + 15,
-    hue: Math.random() * 60 + 30 // Dourados/Amarelos
-  });
-}
-
-function drawBackground() {
-  ctx.fillStyle = backgroundColor;
-  ctx.fillRect(0, 0, cw, ch);
-  
-  if (currentPhase === 0 || currentPhase === 2 || currentPhase === 3) {
-    ctx.fillStyle = (currentPhase === 2 || currentPhase === 3) ? "#ffd700" : "#ffffff";
-    stars.forEach(s => {
-      ctx.beginPath(); ctx.arc(s.x * cw, s.y * ch, s.size, 0, Math.PI*2); ctx.fill();
-    });
-  }
-  
-  if (currentPhase === 6) {
-    // Fogos de artifício eternos e deuses dançando
-    if (Math.random() < 0.05) createExplosion(Math.random() * cw, Math.random() * ch, 0, `hsl(${Math.random()*360}, 100%, 50%)`);
-    
-    dancingGods.forEach(g => {
-      g.x += g.vx; g.y += g.vy;
-      if (g.x < 0 || g.x > cw) g.vx *= -1;
-      if (g.y < 0 || g.y > ch) g.vy *= -1;
-      
-      ctx.beginPath();
-      ctx.arc(g.x, g.y, g.size, 0, Math.PI*2);
-      ctx.fillStyle = `hsl(${g.hue}, 100%, 50%)`;
-      ctx.shadowColor = ctx.fillStyle;
-      ctx.shadowBlur = 30;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    });
-  }
-}
-
-function drawBladeTrail() {
-  const now = Date.now();
-  bladePoints = bladePoints.filter(p => now - p.time < 150); 
-  if (bladePoints.length < 2) return;
-  
-  ctx.beginPath();
-  ctx.moveTo(bladePoints[0].x, bladePoints[0].y);
-  for (let i = 1; i < bladePoints.length; i++) ctx.lineTo(bladePoints[i].x, bladePoints[i].y);
-  
-  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.lineJoin = "round";
-  ctx.shadowColor = currentPhase === 4 ? "#ffffff" : "#00ffff"; 
-  ctx.shadowBlur = 25; ctx.stroke(); ctx.shadowBlur = 0;
-}
-
-function gameLoop() {
-  if (!isPlaying) return;
-  
-  // Nao precisa rodar a logica normal se for fase 6, só o fundo
-  if (currentPhase === 6) {
-    gameLoopId = requestAnimationFrame(gameLoop);
-    drawBackground();
-    updateAndDrawParticles();
-    drawBladeTrail();
-    return;
-  }
-  
-  gameLoopId = requestAnimationFrame(gameLoop);
-  const cx = cw / 2;
-  const cy = ch / 2;
-  
-  // LÓGICA DE FASES
-  if (currentPhase < 3 || currentPhase === 5) {
-    outerRadius -= shrinkSpeed;
-    if (outerRadius <= innerRadius) {
-      if (currentPhase === 5) gameOver("A escuridão engoliu seus filhos.");
-      else gameOver("A escuridão te engoliu.");
-      return;
-    }
-  }
-  
-  // RESPAWN
-  let spawnRate = 0.04;
-  if (currentPhase === 2) spawnRate = 0.08; 
-  if (currentPhase === 3) spawnRate = 0.06;
-  if (currentPhase === 4) spawnRate = 0.05;
-  if (currentPhase === 5) spawnRate = 0.08; 
-  
-  let maxTargets = currentPhase >= 3 ? 6 : 8;
-  if (currentPhase === 5) maxTargets = 10;
-  
-  if (Math.random() < spawnRate && floatingTargets.length < maxTargets) {
-    spawnTarget();
-  }
-  
-  drawBackground();
-  
-  // DESENHA ALVOS
-  for (let i = floatingTargets.length - 1; i >= 0; i--) {
-    let t = floatingTargets[i];
-    if (!t.active) {
-      floatingTargets.splice(i, 1);
-      continue;
-    }
-    
-    if (currentPhase === 4) t.vy += 0.1; 
-    
-    t.x += t.vx;
-    t.y += t.vy;
-    t.angle += t.vAngle;
-    
-    if (currentPhase === 3 && t.type === 1) {
-       const distToCenter = Math.hypot(t.x - cx, t.y - cy);
-       if (distToCenter < innerRadius + 10) {
-         t.active = false;
-         createCutEffect(t.x, t.y, "#ff0000"); 
-         innerRadius -= 20; 
-         if (innerRadius <= 10) {
-           gameOver("As trevas destruíram o seu mundo.");
-           return;
-         }
-         continue; 
-       }
-    }
-    
-    // Some se sair da tela (Com margem grande para telas largas como Notebooks)
-    const despawnMargin = Math.max(cw, ch);
-    if (t.x < -despawnMargin || t.x > cw + despawnMargin || t.y > ch + despawnMargin || t.y < -despawnMargin) {
-      t.active = false;
-      continue;
-    }
-    
+  // Desenha o Rastro da Espada (Blade Trail)
+  const equippedBlade = shopManager.getEquippedBlade();
+  if (bladePoints.length > 1) {
     ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.rotate(t.angle);
-    
-    if (currentPhase === 3) {
-      if (t.type === 1) drawUFO(ctx, t.size);
-      else {
-        if (t.shapeType === 0) drawWheel(ctx, t.size);
-        else drawCross(ctx, t.size);
-      }
-    } else if (currentPhase === 4) {
-      if (t.type === 2) drawSoul(ctx, t.size); 
-      if (t.type === 3) drawBomb(ctx, t.size); 
-    } else {
-      const glowColor = currentPhase === 0 ? "#00ffff" : currentPhase === 1 ? "#ff00ff" : "#ffff00";
-      ctx.shadowColor = glowColor; ctx.shadowBlur = 15;
-      if (t.isOrb) {
-        ctx.beginPath(); ctx.arc(0, 0, t.size/2, 0, Math.PI*2); ctx.fillStyle = glowColor; ctx.fill();
-      } else {
-        ctx.beginPath(); ctx.moveTo(-t.size/2, 0); ctx.lineTo(t.size/2, 0); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 10; ctx.lineCap = "round"; ctx.stroke();
-      }
+    ctx.shadowColor = equippedBlade.glowColor;
+    ctx.shadowBlur = 20;
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = equippedBlade.trailColor[0];
+
+    ctx.beginPath();
+    ctx.moveTo(bladePoints[0].x, bladePoints[0].y);
+    for (let i = 1; i < bladePoints.length; i++) {
+      ctx.lineTo(bladePoints[i].x, bladePoints[i].y);
     }
+    ctx.stroke();
     ctx.restore();
   }
-  
-  updateAndDrawParticles();
-  drawBladeTrail();
-  
-  if (currentPhase < 3 || currentPhase === 5) {
-    const prisonColor = "#ff2222";
-    
-    // Prisão
-    if (currentPhase === 0) drawPolygon(ctx, cx, cy, outerRadius, 3, 3, prisonColor, 8);
-    else if (currentPhase === 1) drawPolygon(ctx, cx, cy, outerRadius, 4, 4, prisonColor, 8);
-    else if (currentPhase === 2 || currentPhase === 5) drawCircle(ctx, cx, cy, outerRadius, prisonColor, false);
-    
-    // Interior (Jogador ou Filhos sendo guiados)
-    const playerColor = currentPhase === 0 ? "#00ffff" : currentPhase === 1 ? "#ff00ff" : "#ffff00";
-    if (currentPhase === 2) {
-      const currentRad = innerRadius + (sidesDrawn * 5);
-      drawCircle(ctx, cx, cy, currentRad, playerColor, true);
-      drawCircle(ctx, cx, cy, currentRad + 20, "#ffffff", false);
-    } else if (currentPhase === 5) {
-      // Deuses recém-nascidos no meio (as bolinhas)
-      const currentRad = innerRadius + (sidesDrawn * 5);
-      drawCircle(ctx, cx, cy, currentRad, "#ffffff", true); // Luz pura
-      drawCircle(ctx, cx, cy, currentRad + 30, "#00ffff", false); // Seu escudo protegendo-os
-    } else {
-      drawPolygon(ctx, cx, cy, innerRadius, targetSides, sidesDrawn, playerColor, 8);
-    }
-  } else if (currentPhase === 3) {
-    drawCircle(ctx, cx, cy, innerRadius, "#112244", true); 
-    for (let r = 20; r < innerRadius; r += 15) {
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
-      ctx.strokeStyle = `hsl(${(r * 10) % 360}, 100%, 50%)`; 
-      ctx.lineWidth = 5; ctx.stroke();
-    }
-  }
+
+  gameLoopId = requestAnimationFrame(gameLoop);
 }
+
+// Inicialização
+updateCoinsDisplay();
+
+// Helper global para troca de ferramentas no Sandbox
+window.setSandboxTool = function(toolName) {
+  if (sandbox) sandbox.setTool(toolName);
+  const btns = document.querySelectorAll('.tool-btn');
+  btns.forEach(btn => btn.classList.remove('active'));
+  if (window.event && window.event.target) {
+    window.event.target.classList.add('active');
+  }
+};
