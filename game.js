@@ -23,33 +23,47 @@ const bgmTerrestrial = new Audio('hino_terrestre.mp3');
 const bgmCelestial = new Audio('hino_celestial.mp3');
 [bgmTelestial, bgmTerrestrial, bgmCelestial].forEach(audio => {
   audio.loop = true;
-  audio.volume = 0.5;
+  audio.volume = 0.6;
 });
 
 let audioUnlocked = false;
-function unlockAudio() {
-  if (audioUnlocked) return;
-  bgmTelestial.load();
-  bgmTerrestrial.load();
-  bgmCelestial.load();
-  audioUnlocked = true;
-  document.removeEventListener('pointerdown', unlockAudio);
+function forceUnlockAndPlayAudio(phase = 0) {
+  try {
+    bgmTelestial.play().then(() => {
+      if (phase !== 0 && phase !== 1 && phase !== 3 && phase !== 7) bgmTelestial.pause();
+    }).catch(() => {});
+    bgmTerrestrial.play().then(() => {
+      if (phase !== 2 && phase !== 4 && phase !== 6 && phase !== 8) bgmTerrestrial.pause();
+    }).catch(() => {});
+    bgmCelestial.play().then(() => {
+      if (phase < 9) bgmCelestial.pause();
+    }).catch(() => {});
+    audioUnlocked = true;
+  } catch (e) {}
 }
-document.addEventListener('pointerdown', unlockAudio);
 
 function playMusicForPhase(phase) {
-  bgmTelestial.pause();
-  bgmTerrestrial.pause();
-  bgmCelestial.pause();
+  try {
+    bgmTelestial.pause();
+    bgmTerrestrial.pause();
+    bgmCelestial.pause();
 
-  if (phase === 0 || phase === 1 || phase === 3 || phase === 7) {
-    bgmTelestial.play().catch(() => {});
-  } else if (phase === 2 || phase === 4 || phase === 6 || phase === 8) {
-    bgmTerrestrial.play().catch(() => {});
-  } else {
-    bgmCelestial.play().catch(() => {});
-  }
+    if (phase === 0 || phase === 1 || phase === 3 || phase === 7) {
+      bgmTelestial.currentTime = 0;
+      bgmTelestial.play().catch(() => {});
+    } else if (phase === 2 || phase === 4 || phase === 6 || phase === 8) {
+      bgmTerrestrial.currentTime = 0;
+      bgmTerrestrial.play().catch(() => {});
+    } else {
+      bgmCelestial.currentTime = 0;
+      bgmCelestial.play().catch(() => {});
+    }
+  } catch (e) {}
 }
+
+document.addEventListener('pointerdown', () => {
+  if (!audioUnlocked) forceUnlockAndPlayAudio(currentPhase);
+}, { once: true });
 
 // UI Elements
 const screenMenu = document.getElementById('screen-menu');
@@ -62,6 +76,7 @@ const btnRestart = document.getElementById('btn-restart');
 const btnShop = document.getElementById('btn-shop');
 const btnCloseShop = document.getElementById('btn-close-shop');
 const btnSandbox = document.getElementById('btn-sandbox');
+const selectPhase = document.getElementById('select-phase');
 const scoreDisplay = document.getElementById('score');
 const finalScoreDisplay = document.getElementById('final-score');
 const kingdomName = document.getElementById('kingdom-name');
@@ -75,6 +90,7 @@ const coinsCountDisplay = document.getElementById('coins-count');
 // Game State
 let isPlaying = false;
 let currentPhase = 0; // 0 to 9 (10 Fases)
+let phaseLives = 3;   // 3 Vidas por fase!
 let sidesDrawn = 0;
 let targetSides = 5;
 let outerRadius = 0;
@@ -124,47 +140,51 @@ function updateCoinsDisplay() {
   if (coinsCountDisplay) coinsCountDisplay.innerText = shopManager.getCoins();
 }
 
+function updateScoreAndLivesDisplay() {
+  const hearts = "❤️".repeat(Math.max(0, phaseLives));
+  scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides} | Vidas: ${hearts}`;
+}
+
 function spawnTarget() {
   let x, y, vx, vy;
   let type = 0; // 0: Cristais Pequenos, 1: Alma, 2: Perdição/Bomba, 3: Meteoro, 4: Matéria
-  // Quadradinhos / Cristais muito menores (tamanho 28 a 34px)
-  let size = 30;
+  let size = 20;
   
-  if (currentPhase === 3) {
-    type = Math.random() > 0.6 ? 2 : 0;
-    size = 28;
+  if (currentPhase === 3) { // Guerra no Céu
+    type = Math.random() > 0.65 ? 2 : 0;
+    size = 18;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = ch + 40;
-    vx = (Math.random() - 0.5) * 4;
-    vy = - (Math.random() * 4 + 7);
-  } else if (currentPhase === 4) {
+    y = ch + 30;
+    vx = (Math.random() - 0.5) * 3.5;
+    vy = - (Math.random() * 3 + 5.5);
+  } else if (currentPhase === 4) { // Criação
     type = 4;
-    size = 32;
-    x = Math.random() < 0.5 ? -40 : cw + 40;
+    size = 22;
+    x = Math.random() < 0.5 ? -30 : cw + 30;
     y = Math.random() * ch * 0.6 + (ch * 0.2);
-    vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 2);
-    vy = (Math.random() - 0.5) * 3;
-  } else if (currentPhase === 7) {
+    vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.8);
+    vy = (Math.random() - 0.5) * 2.5;
+  } else if (currentPhase === 7) { // Resgate almas
     type = 1;
-    size = 28;
+    size = 20;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = ch + 40;
+    y = ch + 30;
     vx = (Math.random() - 0.5) * 3;
-    vy = - (Math.random() * 3 + 6);
-  } else if (currentPhase === 9) {
+    vy = - (Math.random() * 3 + 5);
+  } else if (currentPhase === 9) { // Boss Dragão
     type = Math.random() > 0.5 ? 3 : 2;
-    size = 32;
+    size = 22;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = -40;
+    y = -30;
     vx = (Math.random() - 0.5) * 3;
-    vy = Math.random() * 4 + 4;
-  } else {
-    type = (currentPhase >= 6 && Math.random() > 0.75) ? 2 : 0;
-    size = 28;
-    x = Math.random() < 0.5 ? -40 : cw + 40;
+    vy = Math.random() * 3 + 3.5;
+  } else { // Normal (Fase 1, 2, 3 - Sol, 7 - Mortalidade)
+    type = (currentPhase >= 6 && Math.random() > 0.85) ? 2 : 0;
+    size = 20;
+    x = Math.random() < 0.5 ? -30 : cw + 30;
     y = Math.random() * ch * 0.7 + (ch * 0.15);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.5);
-    vy = (Math.random() - 0.5) * 3;
+    vy = (Math.random() - 0.5) * 2.5;
   }
 
   floatingTargets.push({
@@ -174,7 +194,7 @@ function spawnTarget() {
   });
 }
 
-function initPhase(phase) {
+function initPhase(phase, resetLives = false) {
   currentPhase = phase;
   sidesDrawn = 0;
   outerRadius = Math.max(cw, ch) * 0.8;
@@ -183,40 +203,44 @@ function initPhase(phase) {
   floatingTargets = [];
   bladePoints = [];
   
+  if (resetLives) {
+    phaseLives = 3;
+  }
+
   if (bossHealthBarContainer) bossHealthBarContainer.classList.add('hidden');
 
   playMusicForPhase(phase);
 
   if (phase === 0) {
-    targetSides = 5; shrinkSpeed = 0.8; backgroundColor = "#050512";
+    targetSides = 5; shrinkSpeed = 0.5; backgroundColor = "#050512";
   } else if (phase === 1) {
-    targetSides = 8; shrinkSpeed = 1.0; backgroundColor = "#100b24";
-  } else if (phase === 2) {
-    targetSides = 10; shrinkSpeed = 1.2; backgroundColor = "#2b1400";
+    targetSides = 6; shrinkSpeed = 0.6; backgroundColor = "#100b24";
+  } else if (phase === 2) { // Fase 3: Sol
+    targetSides = 8; shrinkSpeed = 0.5; backgroundColor = "#2b1400";
   } else if (phase === 3) {
-    targetSides = 12; shrinkSpeed = 1.3; backgroundColor = "#150000";
+    targetSides = 10; shrinkSpeed = 0.7; backgroundColor = "#150000";
   } else if (phase === 4) {
-    targetSides = 10; shrinkSpeed = 0.9; backgroundColor = "#001a15";
+    targetSides = 10; shrinkSpeed = 0.5; backgroundColor = "#001a15";
   } else if (phase === 5) {
-    targetSides = 12; shrinkSpeed = 1.1; backgroundColor = "#05152b";
-  } else if (phase === 6) {
-    targetSides = 12; shrinkSpeed = 1.4; backgroundColor = "#1a0515";
-  } else if (phase === 7) {
-    targetSides = 15; shrinkSpeed = 1.0; backgroundColor = "#110022";
+    targetSides = 8; shrinkSpeed = 0.5; backgroundColor = "#05152b";
+  } else if (phase === 6) { // FASE 7: A PROVAÇÃO DA MORTALIDADE ⏳
+    targetSides = 6; shrinkSpeed = 0.35; backgroundColor = "#1a0515"; // Muito tranquila e equilibrada!
+  } else if (phase === 7) { // FASE 8: RESGATE DOS 15 FILHOS 🕊️
+    targetSides = 10; shrinkSpeed = 0.4; backgroundColor = "#110022";
   } else if (phase === 8) {
-    targetSides = 12; shrinkSpeed = 1.2; backgroundColor = "#201a00";
+    targetSides = 10; shrinkSpeed = 0.6; backgroundColor = "#201a00";
   } else if (phase === 9) {
-    targetSides = 1; shrinkSpeed = 0.5; backgroundColor = "#0a0005";
+    targetSides = 1; shrinkSpeed = 0.3; backgroundColor = "#0a0005";
     initBoss();
   }
 
   kingdomName.innerText = CHAPTER_TITLES[phase];
-  scoreDisplay.innerText = `Progresso: 0/${targetSides}`;
+  updateScoreAndLivesDisplay();
   uiContainer.classList.remove('hidden');
   showScripture(scriptures[phase]);
 
   if (phase !== 9) {
-    for (let i = 0; i < 4; i++) spawnTarget();
+    for (let i = 0; i < 6; i++) spawnTarget();
   }
 }
 
@@ -253,17 +277,19 @@ function showScripture(text) {
   }, 3500);
 }
 
-function startGame(startPhase = 0) {
+function startGame(startPhase = 0, resetLives = true) {
   screenMenu.classList.add('hidden');
   screenGameOver.classList.add('hidden');
   screenShop.classList.add('hidden');
   screenSandboxUI.classList.add('hidden');
   if (sandbox) sandbox.stop();
   
+  forceUnlockAndPlayAudio(startPhase);
+
   isPlaying = true;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
   
-  initPhase(startPhase);
+  initPhase(startPhase, resetLives);
   gameLoop();
 }
 
@@ -273,11 +299,32 @@ function gameOver(reason) {
   bgmTerrestrial.pause();
   bgmCelestial.pause();
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+  phaseLives--; // Perde 1 tentativa!
+
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
-  if (deathReason) deathReason.innerText = reason || "A escuridão venceu.";
-  finalScoreDisplay.innerText = `Alcançou: ${CHAPTER_TITLES[currentPhase]}`;
+
+  if (phaseLives > 0) {
+    if (deathReason) deathReason.innerText = `${reason}\n(Você ainda tem ${phaseLives} tentativa(s) nesta fase!)`;
+    finalScoreDisplay.innerText = `Fase Atual: ${CHAPTER_TITLES[currentPhase]} (Tentativa ${4 - phaseLives} de 3)`;
+  } else {
+    if (deathReason) deathReason.innerText = `${reason}\n(Suas 3 tentativas acabaram! Voltando ao início da jornada.)`;
+    finalScoreDisplay.innerText = `Suas 3 vidas acabaram na ${CHAPTER_TITLES[currentPhase]}`;
+  }
+
   uiContainer.classList.add('hidden');
+}
+
+function handleRestart() {
+  if (phaseLives > 0) {
+    // Tenta a MESMA fase novamente mantendo as vidas restantes!
+    startGame(currentPhase, false);
+  } else {
+    // Gastou as 3 tentativas! Reinicia com 3 vidas novas na Fase 0
+    phaseLives = 3;
+    startGame(0, true);
+  }
 }
 
 function winGame() {
@@ -287,6 +334,7 @@ function winGame() {
   shopManager.addCoins(100);
   updateCoinsDisplay();
 
+  bgmCelestial.currentTime = 0;
   bgmCelestial.play().catch(() => {});
 
   sandbox = new CelestialSandbox(canvas, ctx);
@@ -308,7 +356,7 @@ function advancePhase() {
   }
 
   setTimeout(() => {
-    initPhase(currentPhase + 1);
+    initPhase(currentPhase + 1, true); // Ao passar de fase, ganha 3 vidas novas!
   }, 1200);
 }
 
@@ -342,8 +390,16 @@ window.addEventListener('pointerup', () => {
 }, { passive: false });
 
 // Botões da Interface
-btnStart.addEventListener('click', () => startGame(0));
-btnRestart.addEventListener('click', () => startGame(0));
+btnStart.addEventListener('click', () => {
+  const chosenPhase = selectPhase ? parseInt(selectPhase.value, 10) || 0 : 0;
+  forceUnlockAndPlayAudio(chosenPhase);
+  startGame(chosenPhase, true);
+});
+
+btnRestart.addEventListener('click', () => {
+  forceUnlockAndPlayAudio(currentPhase);
+  handleRestart();
+});
 
 if (btnShop) {
   btnShop.addEventListener('click', () => {
@@ -457,15 +513,15 @@ function checkCuts() {
         playSoulSFX();
         createSoulSalvationEffect(t.x, t.y);
         sidesDrawn++;
-        outerRadius += 30;
-        scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides}`;
+        outerRadius += 40;
+        updateScoreAndLivesDisplay();
         if (sidesDrawn >= targetSides) advancePhase();
       } else {
         playSliceSFX();
         createCutEffect(t.x, t.y, blade.particleColor);
         sidesDrawn++;
-        outerRadius += 25;
-        scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides}`;
+        outerRadius += 35;
+        updateScoreAndLivesDisplay();
         if (sidesDrawn >= targetSides) advancePhase();
       }
     }
@@ -505,7 +561,6 @@ function createExplosion(x, y, color) {
   }
 }
 
-// Desenha o Dragão Imponente no Canvas
 function drawDragon(x, y) {
   bossWingAngle += 0.05;
   const wingFlap = Math.sin(bossWingAngle) * 15;
@@ -513,11 +568,9 @@ function drawDragon(x, y) {
   ctx.save();
   ctx.translate(x, y);
 
-  // Aura/Fogo Negro ao redor do Dragão
   ctx.shadowColor = "#FF0000";
   ctx.shadowBlur = 35;
 
-  // Asas Esquerda e Direita gigantes
   ctx.fillStyle = "#220005";
   ctx.strokeStyle = "#8B0000";
   ctx.lineWidth = 3;
@@ -538,29 +591,29 @@ function drawDragon(x, y) {
   ctx.fill();
   ctx.stroke();
 
-  // Corpo e Peito do Dragão
+  // Corpo
   ctx.fillStyle = "#110003";
   ctx.beginPath();
   ctx.ellipse(0, 20, 45, 60, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Cabeça e Chifres do Dragão
+  // Cabeça e Chifres
   ctx.fillStyle = "#1a0005";
   ctx.beginPath();
   ctx.moveTo(-35, -30);
-  ctx.lineTo(-65, -80); // Chifre esquerdo
+  ctx.lineTo(-65, -80);
   ctx.lineTo(-20, -50);
-  ctx.lineTo(0, -75);   // Coroa/Crista central
+  ctx.lineTo(0, -75);
   ctx.lineTo(20, -50);
-  ctx.lineTo(65, -80);  // Chifre direito
+  ctx.lineTo(65, -80);
   ctx.lineTo(35, -30);
   ctx.lineTo(0, 10);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
 
-  // Olhos Vermelhos Ameaçadores
+  // Olhos Vermelhos
   ctx.fillStyle = "#FF0000";
   ctx.shadowColor = "#FF0000";
   ctx.shadowBlur = 15;
@@ -569,14 +622,14 @@ function drawDragon(x, y) {
   ctx.arc(18, -30, 7, 0, Math.PI * 2);
   ctx.fill();
 
-  // Focinho e Fumaça
+  // Focinho
   ctx.fillStyle = "#FF4500";
   ctx.beginPath();
   ctx.arc(-8, -15, 3, 0, Math.PI * 2);
   ctx.arc(8, -15, 3, 0, Math.PI * 2);
   ctx.fill();
 
-  // Anel do Ponto Fraco (Alvo de Ataque)
+  // Alvo do Ponto Fraco
   ctx.strokeStyle = "#FFD700";
   ctx.lineWidth = 4;
   ctx.setLineDash([8, 6]);
@@ -613,23 +666,22 @@ function gameLoop() {
   ctx.arc(cw / 2, ch / 2, outerRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  if (Math.random() < 0.04 && floatingTargets.length < 5 && currentPhase !== 9) {
+  if (Math.random() < 0.12 && floatingTargets.length < 8 && currentPhase !== 9) {
     spawnTarget();
   }
 
-  // Desenha o Dragão das Trevas na Fase 9
   if (currentPhase === 9 && boss) {
     drawDragon(boss.x, boss.y);
   }
 
-  // Desenha Alvos Fatiáveis (Pequenos e Elegantes)
+  // Desenha Alvos Fatiáveis (Tamanho Mini 18px-22px)
   for (let i = floatingTargets.length - 1; i >= 0; i--) {
     let t = floatingTargets[i];
     t.x += t.vx;
     t.y += t.vy;
     t.rotation += t.vRotation;
 
-    if (t.x < -100 || t.x > cw + 100 || t.y < -100 || t.y > ch + 100) {
+    if (t.x < -80 || t.x > cw + 80 || t.y < -80 || t.y > ch + 80) {
       floatingTargets.splice(i, 1);
       continue;
     }
@@ -641,21 +693,21 @@ function gameLoop() {
     if (t.type === 2) { // Bomba / Perdição
       ctx.fillStyle = "#8B0000";
       ctx.shadowColor = "#FF0000";
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
     } else if (t.type === 1) { // Alma / Filho Espiritual
       ctx.fillStyle = "#FFF8DC";
       ctx.shadowColor = "#FFD700";
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
-    } else { // Cristal Pequeno Reluzente
+    } else { // Cristais Miniaturizados Reluzentes
       ctx.fillStyle = "#00FFFF";
       ctx.shadowColor = "#00BFFF";
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.moveTo(0, -t.size / 2);
       ctx.lineTo(t.size / 2, 0);
