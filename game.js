@@ -70,13 +70,18 @@ const screenMenu = document.getElementById('screen-menu');
 const screenGameOver = document.getElementById('screen-gameover');
 const screenShop = document.getElementById('screen-shop');
 const screenSandboxUI = document.getElementById('screen-sandbox-ui');
+const screenVictory = document.getElementById('screen-victory');
 const uiContainer = document.getElementById('ui-container');
+
 const btnStart = document.getElementById('btn-start');
 const btnRestart = document.getElementById('btn-restart');
 const btnShop = document.getElementById('btn-shop');
 const btnCloseShop = document.getElementById('btn-close-shop');
 const btnSandbox = document.getElementById('btn-sandbox');
+const btnEnterSandbox = document.getElementById('btn-enter-sandbox');
+const btnVictoryMenu = document.getElementById('btn-victory-menu');
 const selectPhase = document.getElementById('select-phase');
+
 const scoreDisplay = document.getElementById('score');
 const finalScoreDisplay = document.getElementById('final-score');
 const kingdomName = document.getElementById('kingdom-name');
@@ -96,13 +101,13 @@ let targetSides = 5;
 let outerRadius = 0;
 let innerRadius = 60;
 let shrinkSpeed = 0;
-let gameLoopId;
+let gameLoopId = null;
 let particles = [];
 let backgroundColor = "#050510";
 
 // Boss Dragão State
 let boss = null;
-let bossPhaseStep = 0; // 0: Asas, 1: Cabeça, 2: Cauda, 3: Coração
+let bossPhaseStep = 0;
 let bossWingAngle = 0;
 
 // Blade mechanics
@@ -147,38 +152,38 @@ function updateScoreAndLivesDisplay() {
 
 function spawnTarget() {
   let x, y, vx, vy;
-  let type = 0; // 0: Cristais Pequenos, 1: Alma, 2: Perdição/Bomba, 3: Meteoro, 4: Matéria
+  let type = 0;
   let size = 20;
   
-  if (currentPhase === 3) { // Guerra no Céu
+  if (currentPhase === 3) {
     type = Math.random() > 0.65 ? 2 : 0;
     size = 18;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
     y = ch + 30;
     vx = (Math.random() - 0.5) * 3.5;
     vy = - (Math.random() * 3 + 5.5);
-  } else if (currentPhase === 4) { // Criação
+  } else if (currentPhase === 4) {
     type = 4;
     size = 22;
     x = Math.random() < 0.5 ? -30 : cw + 30;
     y = Math.random() * ch * 0.6 + (ch * 0.2);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.8);
     vy = (Math.random() - 0.5) * 2.5;
-  } else if (currentPhase === 7) { // Resgate almas
+  } else if (currentPhase === 7) {
     type = 1;
     size = 20;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
     y = ch + 30;
     vx = (Math.random() - 0.5) * 3;
     vy = - (Math.random() * 3 + 5);
-  } else if (currentPhase === 9) { // Boss Dragão
+  } else if (currentPhase === 9) {
     type = Math.random() > 0.5 ? 3 : 2;
     size = 22;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
     y = -30;
     vx = (Math.random() - 0.5) * 3;
     vy = Math.random() * 3 + 3.5;
-  } else { // Normal (Fase 1, 2, 3 - Sol, 7 - Mortalidade)
+  } else {
     type = (currentPhase >= 6 && Math.random() > 0.85) ? 2 : 0;
     size = 20;
     x = Math.random() < 0.5 ? -30 : cw + 30;
@@ -203,10 +208,7 @@ function initPhase(phase, resetLives = false) {
   floatingTargets = [];
   bladePoints = [];
   
-  if (resetLives) {
-    phaseLives = 3;
-  }
-
+  if (resetLives) phaseLives = 3;
   if (bossHealthBarContainer) bossHealthBarContainer.classList.add('hidden');
 
   playMusicForPhase(phase);
@@ -215,7 +217,7 @@ function initPhase(phase, resetLives = false) {
     targetSides = 5; shrinkSpeed = 0.5; backgroundColor = "#050512";
   } else if (phase === 1) {
     targetSides = 6; shrinkSpeed = 0.6; backgroundColor = "#100b24";
-  } else if (phase === 2) { // Fase 3: Sol
+  } else if (phase === 2) {
     targetSides = 8; shrinkSpeed = 0.5; backgroundColor = "#2b1400";
   } else if (phase === 3) {
     targetSides = 10; shrinkSpeed = 0.7; backgroundColor = "#150000";
@@ -223,9 +225,9 @@ function initPhase(phase, resetLives = false) {
     targetSides = 10; shrinkSpeed = 0.5; backgroundColor = "#001a15";
   } else if (phase === 5) {
     targetSides = 8; shrinkSpeed = 0.5; backgroundColor = "#05152b";
-  } else if (phase === 6) { // FASE 7: A PROVAÇÃO DA MORTALIDADE ⏳
-    targetSides = 6; shrinkSpeed = 0.35; backgroundColor = "#1a0515"; // Muito tranquila e equilibrada!
-  } else if (phase === 7) { // FASE 8: RESGATE DOS 15 FILHOS 🕊️
+  } else if (phase === 6) {
+    targetSides = 6; shrinkSpeed = 0.35; backgroundColor = "#1a0515";
+  } else if (phase === 7) {
     targetSides = 10; shrinkSpeed = 0.4; backgroundColor = "#110022";
   } else if (phase === 8) {
     targetSides = 10; shrinkSpeed = 0.6; backgroundColor = "#201a00";
@@ -278,11 +280,12 @@ function showScripture(text) {
 }
 
 function startGame(startPhase = 0, resetLives = true) {
+  if (sandbox) sandbox.stop();
   screenMenu.classList.add('hidden');
   screenGameOver.classList.add('hidden');
   screenShop.classList.add('hidden');
   screenSandboxUI.classList.add('hidden');
-  if (sandbox) sandbox.stop();
+  if (screenVictory) screenVictory.classList.add('hidden');
   
   forceUnlockAndPlayAudio(startPhase);
 
@@ -300,7 +303,7 @@ function gameOver(reason) {
   bgmCelestial.pause();
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
 
-  phaseLives--; // Perde 1 tentativa!
+  phaseLives--;
 
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
@@ -318,18 +321,12 @@ function gameOver(reason) {
 
 function handleRestart() {
   if (phaseLives > 0) {
-    // Tenta a MESMA fase novamente mantendo as vidas restantes!
     startGame(currentPhase, false);
   } else {
-    // Gastou as 3 tentativas! Reinicia com 3 vidas novas na Fase 0
     phaseLives = 3;
     startGame(0, true);
   }
 }
-
-const screenVictory = document.getElementById('screen-victory');
-const btnEnterSandbox = document.getElementById('btn-enter-sandbox');
-const btnVictoryMenu = document.getElementById('btn-victory-menu');
 
 function winGame() {
   isPlaying = false;
@@ -345,20 +342,32 @@ function winGame() {
   if (screenVictory) screenVictory.classList.remove('hidden');
 }
 
-if (btnEnterSandbox) {
-  btnEnterSandbox.addEventListener('click', () => {
-    if (screenVictory) screenVictory.classList.add('hidden');
-    sandbox = new CelestialSandbox(canvas, ctx);
-    sandbox.start();
-    screenSandboxUI.classList.remove('hidden');
-  });
+// Entrar no Modo Sandbox sem Bugs!
+function enterSandboxMode() {
+  isPlaying = false;
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+
+  screenMenu.classList.add('hidden');
+  screenGameOver.classList.add('hidden');
+  screenShop.classList.add('hidden');
+  if (screenVictory) screenVictory.classList.add('hidden');
+  uiContainer.classList.add('hidden');
+  screenSandboxUI.classList.remove('hidden');
+
+  bgmCelestial.currentTime = 0;
+  bgmCelestial.play().catch(() => {});
+
+  sandbox = new CelestialSandbox(canvas, ctx);
+  sandbox.start();
+
+  sandboxLoop();
 }
 
-if (btnVictoryMenu) {
-  btnVictoryMenu.addEventListener('click', () => {
-    if (screenVictory) screenVictory.classList.add('hidden');
-    screenMenu.classList.remove('hidden');
-  });
+function sandboxLoop() {
+  if (sandbox && sandbox.active) {
+    sandbox.updateAndRender();
+    gameLoopId = requestAnimationFrame(sandboxLoop);
+  }
 }
 
 function advancePhase() {
@@ -373,11 +382,11 @@ function advancePhase() {
   }
 
   setTimeout(() => {
-    initPhase(currentPhase + 1, true); // Ao passar de fase, ganha 3 vidas novas!
+    initPhase(currentPhase + 1, true);
   }, 1200);
 }
 
-// Interação e Corte (Blade)
+// Interação e Corte
 function updateBlade(x, y) {
   bladePoints.push({ x: x, y: y, time: Date.now() });
   if (bladePoints.length > 10) bladePoints.shift();
@@ -435,8 +444,20 @@ if (btnCloseShop) {
 
 if (btnSandbox) {
   btnSandbox.addEventListener('click', () => {
-    screenMenu.classList.add('hidden');
-    winGame();
+    enterSandboxMode();
+  });
+}
+
+if (btnEnterSandbox) {
+  btnEnterSandbox.addEventListener('click', () => {
+    enterSandboxMode();
+  });
+}
+
+if (btnVictoryMenu) {
+  btnVictoryMenu.addEventListener('click', () => {
+    if (screenVictory) screenVictory.classList.add('hidden');
+    screenMenu.classList.remove('hidden');
   });
 }
 
@@ -659,9 +680,7 @@ function drawDragon(x, y) {
 
 function gameLoop() {
   if (sandbox && sandbox.active) {
-    sandbox.updateAndRender();
-    gameLoopId = requestAnimationFrame(gameLoop);
-    return;
+    return; // O Sandbox usa o próprio sandboxLoop!
   }
 
   if (!isPlaying) return;
@@ -707,21 +726,21 @@ function gameLoop() {
     ctx.translate(t.x, t.y);
     ctx.rotate(t.rotation);
 
-    if (t.type === 2) { // Bomba / Perdição
+    if (t.type === 2) {
       ctx.fillStyle = "#8B0000";
       ctx.shadowColor = "#FF0000";
       ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
-    } else if (t.type === 1) { // Alma / Filho Espiritual
+    } else if (t.type === 1) {
       ctx.fillStyle = "#FFF8DC";
       ctx.shadowColor = "#FFD700";
       ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
-    } else { // Cristais Miniaturizados Reluzentes
+    } else {
       ctx.fillStyle = "#00FFFF";
       ctx.shadowColor = "#00BFFF";
       ctx.shadowBlur = 10;
