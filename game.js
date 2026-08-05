@@ -26,36 +26,29 @@ const bgmCelestial = new Audio('hino_celestial.mp3');
   audio.volume = 0.6;
 });
 
+function stopAllMusic() {
+  [bgmTelestial, bgmTerrestrial, bgmCelestial].forEach(audio => {
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch (e) {}
+  });
+}
+
 let audioUnlocked = false;
 function forceUnlockAndPlayAudio(phase = 0) {
-  try {
-    bgmTelestial.play().then(() => {
-      if (phase !== 0 && phase !== 1 && phase !== 3 && phase !== 7) bgmTelestial.pause();
-    }).catch(() => {});
-    bgmTerrestrial.play().then(() => {
-      if (phase !== 2 && phase !== 4 && phase !== 6 && phase !== 8) bgmTerrestrial.pause();
-    }).catch(() => {});
-    bgmCelestial.play().then(() => {
-      if (phase < 9) bgmCelestial.pause();
-    }).catch(() => {});
-    audioUnlocked = true;
-  } catch (e) {}
+  playMusicForPhase(phase);
+  audioUnlocked = true;
 }
 
 function playMusicForPhase(phase) {
+  stopAllMusic();
   try {
-    bgmTelestial.pause();
-    bgmTerrestrial.pause();
-    bgmCelestial.pause();
-
     if (phase === 0 || phase === 1 || phase === 3 || phase === 7) {
-      bgmTelestial.currentTime = 0;
       bgmTelestial.play().catch(() => {});
     } else if (phase === 2 || phase === 4 || phase === 6 || phase === 8) {
-      bgmTerrestrial.currentTime = 0;
       bgmTerrestrial.play().catch(() => {});
     } else {
-      bgmCelestial.currentTime = 0;
       bgmCelestial.play().catch(() => {});
     }
   } catch (e) {}
@@ -79,7 +72,9 @@ const btnShop = document.getElementById('btn-shop');
 const btnCloseShop = document.getElementById('btn-close-shop');
 const btnSandbox = document.getElementById('btn-sandbox');
 const btnEnterSandbox = document.getElementById('btn-enter-sandbox');
+const btnVictoryReplay = document.getElementById('btn-victory-replay');
 const btnVictoryMenu = document.getElementById('btn-victory-menu');
+const btnCloseSandbox = document.getElementById('btn-close-sandbox');
 const selectPhase = document.getElementById('select-phase');
 
 const scoreDisplay = document.getElementById('score');
@@ -298,9 +293,7 @@ function startGame(startPhase = 0, resetLives = true) {
 
 function gameOver(reason) {
   isPlaying = false;
-  bgmTelestial.pause();
-  bgmTerrestrial.pause();
-  bgmCelestial.pause();
+  stopAllMusic();
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
 
   phaseLives--;
@@ -335,14 +328,13 @@ function winGame() {
   shopManager.addCoins(100);
   updateCoinsDisplay();
 
-  bgmCelestial.currentTime = 0;
+  stopAllMusic();
   bgmCelestial.play().catch(() => {});
 
   uiContainer.classList.add('hidden');
   if (screenVictory) screenVictory.classList.remove('hidden');
 }
 
-// Entrar no Modo Sandbox sem Bugs!
 function enterSandboxMode() {
   isPlaying = false;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
@@ -354,13 +346,21 @@ function enterSandboxMode() {
   uiContainer.classList.add('hidden');
   screenSandboxUI.classList.remove('hidden');
 
-  bgmCelestial.currentTime = 0;
+  stopAllMusic();
   bgmCelestial.play().catch(() => {});
 
   sandbox = new CelestialSandbox(canvas, ctx);
   sandbox.start();
 
   sandboxLoop();
+}
+
+function exitSandboxMode() {
+  if (sandbox) sandbox.stop();
+  stopAllMusic();
+  if (gameLoopId) cancelAnimationFrame(gameLoopId);
+  screenSandboxUI.classList.add('hidden');
+  screenMenu.classList.remove('hidden');
 }
 
 function sandboxLoop() {
@@ -454,10 +454,23 @@ if (btnEnterSandbox) {
   });
 }
 
+if (btnVictoryReplay) {
+  btnVictoryReplay.addEventListener('click', () => {
+    startGame(0, true);
+  });
+}
+
 if (btnVictoryMenu) {
   btnVictoryMenu.addEventListener('click', () => {
     if (screenVictory) screenVictory.classList.add('hidden');
+    stopAllMusic();
     screenMenu.classList.remove('hidden');
+  });
+}
+
+if (btnCloseSandbox) {
+  btnCloseSandbox.addEventListener('click', () => {
+    exitSandboxMode();
   });
 }
 
@@ -680,7 +693,7 @@ function drawDragon(x, y) {
 
 function gameLoop() {
   if (sandbox && sandbox.active) {
-    return; // O Sandbox usa o próprio sandboxLoop!
+    return;
   }
 
   if (!isPlaying) return;
