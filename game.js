@@ -327,6 +327,10 @@ function handleRestart() {
   }
 }
 
+const screenVictory = document.getElementById('screen-victory');
+const btnEnterSandbox = document.getElementById('btn-enter-sandbox');
+const btnVictoryMenu = document.getElementById('btn-victory-menu');
+
 function winGame() {
   isPlaying = false;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
@@ -337,11 +341,24 @@ function winGame() {
   bgmCelestial.currentTime = 0;
   bgmCelestial.play().catch(() => {});
 
-  sandbox = new CelestialSandbox(canvas, ctx);
-  sandbox.start();
-
   uiContainer.classList.add('hidden');
-  screenSandboxUI.classList.remove('hidden');
+  if (screenVictory) screenVictory.classList.remove('hidden');
+}
+
+if (btnEnterSandbox) {
+  btnEnterSandbox.addEventListener('click', () => {
+    if (screenVictory) screenVictory.classList.add('hidden');
+    sandbox = new CelestialSandbox(canvas, ctx);
+    sandbox.start();
+    screenSandboxUI.classList.remove('hidden');
+  });
+}
+
+if (btnVictoryMenu) {
+  btnVictoryMenu.addEventListener('click', () => {
+    if (screenVictory) screenVictory.classList.add('hidden');
+    screenMenu.classList.remove('hidden');
+  });
 }
 
 function advancePhase() {
