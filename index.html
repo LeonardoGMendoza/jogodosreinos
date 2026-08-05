@@ -31,18 +31,10 @@
     <canvas id="game-canvas"></canvas>
   </div>
 
-  <!-- UI do Jogo (Placar e Barra do Boss) -->
+  <!-- UI do Jogo (Placar e Reino) -->
   <div id="ui-container" class="hidden">
-    <div id="kingdom-name">FASE 1: A GLÓRIA DAS ESTRELAS ⭐</div>
-    <div id="score-display">Progresso: <span id="score">0</span></div>
-    
-    <!-- Barra de Vida do Boss (Fase 9) -->
-    <div id="boss-health-container" class="hidden">
-      <div id="boss-name">DRAGÃO DAS TREVAS</div>
-      <div class="health-bar-bg">
-        <div id="boss-health-fill"></div>
-      </div>
-    </div>
+    <div id="kingdom-name">REINO TELESTIAL</div>
+    <div id="score-display">Nível: <span id="score">1</span></div>
   </div>
 
   <!-- Tela de Menu Inicial -->
@@ -50,82 +42,20 @@
     <div class="menu-content">
       <img src="apple-touch-icon.png" alt="Coroa Dourada" class="game-logo">
       <h1 class="game-title">A Jornada dos Reinos</h1>
-      <p class="subtitle">O Plano de Salvação em 6 Capítulos.<br><strong>Arraste o dedo na tela</strong> como uma espada divina para libertar almas e vencer o Dragão das Trevas!</p>
+      <p class="subtitle">A Prisão do Mundo está se fechando.<br><strong>Arraste o dedo na tela</strong> como uma espada para fatiar os obstáculos e construir seu reino!</p>
       
-      <div class="menu-actions">
-        <button id="btn-start" class="btn-epic">⚔️ Iniciar Campanha (10 Fases)</button>
-        
-        <!-- Seletor Direto de Fase -->
-        <div class="phase-selector-container" style="margin: 8px 0;">
-          <label for="select-phase" style="font-size: 0.85rem; color: #FFD700; font-weight: bold; display: block; margin-bottom: 4px;">🎯 Escolher Fase Inicial:</label>
-          <select id="select-phase" style="width: 100%; padding: 10px; border-radius: 12px; background: rgba(0,0,0,0.7); color: #FFF; border: 1.5px solid #FFD700; font-weight: bold; font-family: 'Montserrat', sans-serif;">
-            <option value="0">Fase 1: Glória das Estrelas ⭐</option>
-            <option value="1">Fase 2: Glória da Lua 🌙</option>
-            <option value="2">Fase 3: Glória do Sol ☀️</option>
-            <option value="3">Fase 4: Guerra no Céu ⚡</option>
-            <option value="4">Fase 5: A Criação 🌊</option>
-            <option value="5">Fase 6: Criador de Planetas 🪐</option>
-            <option value="6">Fase 7: Provação da Mortalidade ⏳</option>
-            <option value="7">Fase 8: Resgate dos 15 Filhos 🕊️</option>
-            <option value="8">Fase 9: O Julgamento ⚖️</option>
-            <option value="9">Fase 10: O Dragão das Trevas 🐉 (Boss)</option>
-          </select>
-        </div>
-
-        <button id="btn-shop" class="btn-secondary">👑 Loja de Lâminas (<span id="coins-count">0</span> ⭐)</button>
-        <button id="btn-sandbox" class="btn-secondary">🌌 Modo Sandbox Celestial</button>
+      <div class="instructions">
+        <p>⭐ <b>Fases 1-3:</b> Fatie para sobreviver à prisão.</p>
+        <p>🌌 <b>Fase 4 (Deus Criador):</b> Fatie a matéria antiga para criar 3 planetas e defendê-los das Trevas.</p>
+        <p>🌑 <b>Fase 5 (Trevas Exteriores):</b> Resgate seus 15 filhos espirituais. <b>NÃO CORTE</b> a Perdição!</p>
+        <p>✨ <b>Fase Final:</b> Guie seus filhos e dance na eternidade.</p>
       </div>
+
+      <button id="btn-start" class="btn-epic">Iniciar Jornada</button>
     </div>
   </div>
 
-  <!-- Tela de Loja de Espadas (Skins) -->
-  <div id="screen-shop" class="screen hidden">
-    <div class="menu-content shop-content">
-      <h2 class="game-title">👑 Loja de Lâminas Divinas</h2>
-      <p class="subtitle">Adquira novas espadas visuais com Estrelas de Luz ganhas jogando!</p>
-
-      <div id="shop-items-container" class="shop-grid">
-        <!-- Preenchido via JavaScript -->
-      </div>
-
-      <button id="btn-close-shop" class="btn-epic" style="margin-top: 15px;">Voltar ao Menu</button>
-    </div>
-  </div>
-
-  <!-- Controles do Modo Sandbox Celestial -->
-  <div id="screen-sandbox-ui" class="hidden sandbox-hud">
-    <div class="sandbox-title">🌌 REINO CELESTIAL SANDBOX</div>
-    <p>Toque na tela para criar elementos celestiais:</p>
-    <div class="sandbox-tools">
-      <button class="tool-btn active" onclick="window.setSandboxTool('star')">⭐ Estrela</button>
-      <button class="tool-btn" onclick="window.setSandboxTool('tree')">🌳 Árvore da Vida</button>
-      <button class="tool-btn" onclick="window.setSandboxTool('temple')">🏛️ Templo</button>
-      <button class="tool-btn" onclick="window.setSandboxTool('galaxy')">🌀 Galáxia</button>
-    </div>
-    <button id="btn-close-sandbox" class="btn-secondary" style="margin-top: 10px;">🏠 Voltar ao Menu Principal</button>
-  </div>
-
-  <!-- Tela de Vitória Épica (Após Matar o Dragão) -->
-  <div id="screen-victory" class="screen hidden">
-    <div class="menu-content" style="border-color: #FFD700; box-shadow: 0 0 40px rgba(255, 215, 0, 0.6);">
-      <h1 class="game-title" style="color: #FFD700; text-shadow: 0 0 20px #FFD700;">🏆 VOCÊ VENCEU O DRAGÃO!</h1>
-      <p class="subtitle" style="font-size: 1.1rem; color: #FFF; line-height: 1.5;">
-        <em>"A jornada terminou... mas a eternidade apenas começou."</em><br><br>
-        Você derrotou o Dragão das Trevas e salvou seus 15 filhos espirituais!
-      </p>
-      <div style="background: rgba(255, 215, 0, 0.15); padding: 12px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #FFD700;">
-        ⭐ <strong>Prêmio: +100 Estrelas de Luz</strong><br>
-        🌌 <strong>Recompensa: Modo Sandbox Celestial Desbloqueado!</strong>
-      </div>
-      <div class="menu-actions">
-        <button id="btn-victory-replay" class="btn-epic">⚔️ Jogar Campanha Novamente</button>
-        <button id="btn-enter-sandbox" class="btn-secondary">🌌 Entrar no Sandbox (Criar Templos)</button>
-        <button id="btn-victory-menu" class="btn-secondary">🏠 Voltar ao Menu Principal</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Tela de Fim de Jogo -->
+  <!-- Tela de Fim de Jogo (Ficou Preto) -->
   <div id="screen-gameover" class="screen hidden">
     <div class="menu-content">
       <h1 class="game-title" style="color: #ff3333; text-shadow: 0 0 20px #ff0000;">A Escuridão Venceu</h1>
@@ -135,11 +65,11 @@
     </div>
   </div>
 
-  <!-- Escritura/Popup de Fase -->
+  <!-- Escritura que aparece ao passar de fase -->
   <div id="scripture-popup" class="hidden">
     <p id="scripture-text">"Bem-vindo ao novo reino."</p>
   </div>
 
-  <script type="module" src="game.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>
