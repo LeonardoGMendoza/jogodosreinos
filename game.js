@@ -1,5 +1,5 @@
 import { playSliceSFX, playSoulSFX, playExplosionSFX, playBossHitSFX, playVictorySFX } from './sfx.js';
-import { ShopManager } from './shop.js';
+import { ShopManager, BLADES } from './shop.js';
 import { CelestialSandbox } from './sandbox.js';
 
 const canvas = document.getElementById('game-canvas');
@@ -16,6 +16,40 @@ window.addEventListener('resize', () => {
 // Managers
 const shopManager = new ShopManager();
 let sandbox = null;
+
+// Áudios dos Hinos
+const bgmTelestial = new Audio('hino_telestial.mp3');
+const bgmTerrestrial = new Audio('hino_terrestre.mp3');
+const bgmCelestial = new Audio('hino_celestial.mp3');
+[bgmTelestial, bgmTerrestrial, bgmCelestial].forEach(audio => {
+  audio.loop = true;
+  audio.volume = 0.5;
+});
+
+let audioUnlocked = false;
+function unlockAudio() {
+  if (audioUnlocked) return;
+  bgmTelestial.load();
+  bgmTerrestrial.load();
+  bgmCelestial.load();
+  audioUnlocked = true;
+  document.removeEventListener('pointerdown', unlockAudio);
+}
+document.addEventListener('pointerdown', unlockAudio);
+
+function playMusicForPhase(phase) {
+  bgmTelestial.pause();
+  bgmTerrestrial.pause();
+  bgmCelestial.pause();
+
+  if (phase === 0 || phase === 1 || phase === 3 || phase === 7) {
+    bgmTelestial.play().catch(() => {});
+  } else if (phase === 2 || phase === 4 || phase === 6 || phase === 8) {
+    bgmTerrestrial.play().catch(() => {});
+  } else {
+    bgmCelestial.play().catch(() => {});
+  }
+}
 
 // UI Elements
 const screenMenu = document.getElementById('screen-menu');
@@ -50,16 +84,16 @@ let gameLoopId;
 let particles = [];
 let backgroundColor = "#050510";
 
-// Boss State (Fase 9 - Dragão das Trevas)
+// Boss Dragão State
 let boss = null;
 let bossPhaseStep = 0; // 0: Asas, 1: Cabeça, 2: Cauda, 3: Coração
+let bossWingAngle = 0;
 
 // Blade mechanics
 let isDragging = false;
 let bladePoints = [];
 let floatingTargets = [];
 
-// Scriptures & Chapter Descriptions
 const CHAPTER_TITLES = [
   "FASE 1: A GLÓRIA DAS ESTRELAS ⭐",
   "FASE 2: A GLÓRIA DA LUA 🌙",
@@ -83,7 +117,7 @@ const scriptures = [
   "Capítulo 4: Mortalidade! Proteja os filhos das doenças e guerras!",
   "Capítulo 4: Resgate os 15 filhos espirituais! Eles marcharão com você!",
   "Capítulo 5: O Julgamento diante do Trono! Equilibre a Balança Celestial!",
-  "Capítulo 6: O DRAGÃO DAS TREVAS! Fatie as meteoros e destrua o Coração do Boss!"
+  "Capítulo 6: O DRAGÃO DAS TREVAS! Fatie os ataques e vença o Boss!"
 ];
 
 function updateCoinsDisplay() {
@@ -92,41 +126,42 @@ function updateCoinsDisplay() {
 
 function spawnTarget() {
   let x, y, vx, vy;
-  let type = 0; // 0: Normal, 1: Alma, 2: Perdição/Bomba, 3: Meteoro, 4: Matéria
-  let size = 60;
+  let type = 0; // 0: Cristais Pequenos, 1: Alma, 2: Perdição/Bomba, 3: Meteoro, 4: Matéria
+  // Quadradinhos / Cristais muito menores (tamanho 28 a 34px)
+  let size = 30;
   
-  if (currentPhase === 3) { // Guerra no Céu (Lúcifer)
+  if (currentPhase === 3) {
     type = Math.random() > 0.6 ? 2 : 0;
-    size = 55;
+    size = 28;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = ch + 50;
+    y = ch + 40;
     vx = (Math.random() - 0.5) * 4;
     vy = - (Math.random() * 4 + 7);
-  } else if (currentPhase === 4) { // Criação (Matéria)
+  } else if (currentPhase === 4) {
     type = 4;
-    size = 70;
-    x = Math.random() < 0.5 ? -50 : cw + 50;
+    size = 32;
+    x = Math.random() < 0.5 ? -40 : cw + 40;
     y = Math.random() * ch * 0.6 + (ch * 0.2);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 2);
     vy = (Math.random() - 0.5) * 3;
-  } else if (currentPhase === 7) { // Resgate dos 15 Filhos
+  } else if (currentPhase === 7) {
     type = 1;
-    size = 50;
+    size = 28;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = ch + 50;
+    y = ch + 40;
     vx = (Math.random() - 0.5) * 3;
     vy = - (Math.random() * 3 + 6);
-  } else if (currentPhase === 9) { // Boss Dragão
-    type = Math.random() > 0.5 ? 3 : 2; // Meteoro ou Fogo/Bomba
-    size = 65;
+  } else if (currentPhase === 9) {
+    type = Math.random() > 0.5 ? 3 : 2;
+    size = 32;
     x = Math.random() * cw * 0.8 + (cw * 0.1);
-    y = -50;
+    y = -40;
     vx = (Math.random() - 0.5) * 3;
     vy = Math.random() * 4 + 4;
-  } else { // Normal (0, 1, 2, 5, 6, 8)
+  } else {
     type = (currentPhase >= 6 && Math.random() > 0.75) ? 2 : 0;
-    size = 55;
-    x = Math.random() < 0.5 ? -50 : cw + 50;
+    size = 28;
+    x = Math.random() < 0.5 ? -40 : cw + 40;
     y = Math.random() * ch * 0.7 + (ch * 0.15);
     vx = (x < 0 ? 1 : -1) * (Math.random() * 2 + 1.5);
     vy = (Math.random() - 0.5) * 3;
@@ -150,25 +185,27 @@ function initPhase(phase) {
   
   if (bossHealthBarContainer) bossHealthBarContainer.classList.add('hidden');
 
+  playMusicForPhase(phase);
+
   if (phase === 0) {
     targetSides = 5; shrinkSpeed = 0.8; backgroundColor = "#050512";
   } else if (phase === 1) {
     targetSides = 8; shrinkSpeed = 1.0; backgroundColor = "#100b24";
   } else if (phase === 2) {
     targetSides = 10; shrinkSpeed = 1.2; backgroundColor = "#2b1400";
-  } else if (phase === 3) { // Guerra no Céu
+  } else if (phase === 3) {
     targetSides = 12; shrinkSpeed = 1.3; backgroundColor = "#150000";
-  } else if (phase === 4) { // Criação
+  } else if (phase === 4) {
     targetSides = 10; shrinkSpeed = 0.9; backgroundColor = "#001a15";
-  } else if (phase === 5) { // Planetas
+  } else if (phase === 5) {
     targetSides = 12; shrinkSpeed = 1.1; backgroundColor = "#05152b";
-  } else if (phase === 6) { // Mortalidade
+  } else if (phase === 6) {
     targetSides = 12; shrinkSpeed = 1.4; backgroundColor = "#1a0515";
-  } else if (phase === 7) { // Resgate 15 Filhos
+  } else if (phase === 7) {
     targetSides = 15; shrinkSpeed = 1.0; backgroundColor = "#110022";
-  } else if (phase === 8) { // Julgamento
+  } else if (phase === 8) {
     targetSides = 12; shrinkSpeed = 1.2; backgroundColor = "#201a00";
-  } else if (phase === 9) { // Boss Dragão das Trevas
+  } else if (phase === 9) {
     targetSides = 1; shrinkSpeed = 0.5; backgroundColor = "#0a0005";
     initBoss();
   }
@@ -190,11 +227,11 @@ function initBoss() {
   
   boss = {
     x: cw / 2,
-    y: ch * 0.3,
+    y: ch * 0.28,
     maxHp: 100,
     hp: 100,
     partName: "ASAS DAS TREVAS",
-    weakPointRadius: 70
+    weakPointRadius: 65
   };
   updateBossUI();
 }
@@ -232,6 +269,9 @@ function startGame(startPhase = 0) {
 
 function gameOver(reason) {
   isPlaying = false;
+  bgmTelestial.pause();
+  bgmTerrestrial.pause();
+  bgmCelestial.pause();
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
   screenGameOver.classList.remove('hidden');
   const deathReason = document.getElementById('death-reason');
@@ -244,10 +284,11 @@ function winGame() {
   isPlaying = false;
   if (gameLoopId) cancelAnimationFrame(gameLoopId);
   playVictorySFX();
-  shopManager.addCoins(200);
+  shopManager.addCoins(100);
   updateCoinsDisplay();
 
-  // Ativa o Modo Sandbox Celestial
+  bgmCelestial.play().catch(() => {});
+
   sandbox = new CelestialSandbox(canvas, ctx);
   sandbox.start();
 
@@ -258,7 +299,7 @@ function winGame() {
 function advancePhase() {
   createExplosion(cw / 2, ch / 2, "#FFD700");
   playVictorySFX();
-  shopManager.addCoins(30);
+  shopManager.addCoins(25);
   updateCoinsDisplay();
 
   if (currentPhase >= 9) {
@@ -326,7 +367,7 @@ if (btnSandbox) {
   });
 }
 
-// Loja Renders
+// Loja Renders e Compra Direta
 function renderShopItems() {
   const container = document.getElementById('shop-items-container');
   if (!container) return;
@@ -335,38 +376,35 @@ function renderShopItems() {
 
   const equipped = shopManager.getEquippedBlade();
 
-  shopManager.unlockedBlades.forEach(); // update status
-  
-  import('./shop.js').then(module => {
-    module.BLADES.forEach(b => {
-      const card = document.createElement('div');
-      card.className = `shop-card ${equipped.id === b.id ? 'equipped' : ''}`;
-      
-      const isUnlocked = b.unlocked;
-      
-      card.innerHTML = `
-        <div class="shop-icon">${b.icon}</div>
-        <div class="shop-name">${b.name}</div>
-        <div class="shop-desc">${b.description}</div>
-        <button class="shop-btn ${isUnlocked ? 'unlocked' : ''}">
-          ${equipped.id === b.id ? 'EM USO' : isUnlocked ? 'EQUIPAR' : `COMPRAR (${b.price} ⭐)`}
-        </button>
-      `;
+  BLADES.forEach(b => {
+    const card = document.createElement('div');
+    const isUnlocked = b.unlocked;
+    const isEquipped = equipped.id === b.id;
 
-      const btn = card.querySelector('.shop-btn');
-      btn.addEventListener('click', () => {
-        if (!isUnlocked) {
-          const res = shopManager.buyBlade(b.id);
-          alert(res.message);
-          renderShopItems();
-        } else {
-          shopManager.equipBlade(b.id);
-          renderShopItems();
-        }
-      });
+    card.className = `shop-card ${isEquipped ? 'equipped' : ''}`;
+    
+    card.innerHTML = `
+      <div class="shop-icon">${b.icon}</div>
+      <div class="shop-name">${b.name}</div>
+      <div class="shop-desc">${b.description}</div>
+      <button class="shop-btn ${isUnlocked ? 'unlocked' : ''}">
+        ${isEquipped ? 'EM USO' : isUnlocked ? 'EQUIPAR' : `COMPRAR (${b.price} ⭐)`}
+      </button>
+    `;
 
-      container.appendChild(card);
+    const btn = card.querySelector('.shop-btn');
+    btn.addEventListener('click', () => {
+      if (!isUnlocked) {
+        const res = shopManager.buyBlade(b.id);
+        alert(res.message);
+        renderShopItems();
+      } else {
+        shopManager.equipBlade(b.id);
+        renderShopItems();
+      }
     });
+
+    container.appendChild(card);
   });
 }
 
@@ -376,11 +414,10 @@ function checkCuts() {
   const p2 = bladePoints[bladePoints.length - 1];
   const blade = shopManager.getEquippedBlade();
 
-  // Teste de colisão no Boss (Fase 9)
   if (currentPhase === 9 && boss) {
     const distBoss = Math.hypot(p2.x - boss.x, p2.y - boss.y);
-    if (distBoss < boss.weakPointRadius + 30) {
-      boss.hp -= 8;
+    if (distBoss < boss.weakPointRadius + 25) {
+      boss.hp -= 10;
       playBossHitSFX();
       createCutEffect(boss.x, boss.y, blade.particleColor);
       updateBossUI();
@@ -409,21 +446,21 @@ function checkCuts() {
   floatingTargets.forEach(t => {
     if (!t.active) return;
     const dist = Math.hypot(p2.x - t.x, p2.y - t.y);
-    if (dist < t.size / 2 + 25) {
+    if (dist < t.size / 2 + 20) {
       t.active = false;
       
-      if (t.type === 2) { // Bomba / Perdição
+      if (t.type === 2) {
         playExplosionSFX();
         createExplosion(t.x, t.y, "#FF0000");
         gameOver("Você cortou a Perdição! Seus filhos espirituais choram.");
-      } else if (t.type === 1) { // Alma / Filho Espiritual
+      } else if (t.type === 1) {
         playSoulSFX();
         createSoulSalvationEffect(t.x, t.y);
         sidesDrawn++;
         outerRadius += 30;
         scoreDisplay.innerText = `Progresso: ${sidesDrawn}/${targetSides}`;
         if (sidesDrawn >= targetSides) advancePhase();
-      } else { // Normal / Meteoro / Matéria
+      } else {
         playSliceSFX();
         createCutEffect(t.x, t.y, blade.particleColor);
         sidesDrawn++;
@@ -468,6 +505,88 @@ function createExplosion(x, y, color) {
   }
 }
 
+// Desenha o Dragão Imponente no Canvas
+function drawDragon(x, y) {
+  bossWingAngle += 0.05;
+  const wingFlap = Math.sin(bossWingAngle) * 15;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Aura/Fogo Negro ao redor do Dragão
+  ctx.shadowColor = "#FF0000";
+  ctx.shadowBlur = 35;
+
+  // Asas Esquerda e Direita gigantes
+  ctx.fillStyle = "#220005";
+  ctx.strokeStyle = "#8B0000";
+  ctx.lineWidth = 3;
+
+  // Asa Esquerda
+  ctx.beginPath();
+  ctx.moveTo(-20, 0);
+  ctx.quadraticCurveTo(-120, -90 + wingFlap, -180, -30 + wingFlap);
+  ctx.quadraticCurveTo(-100, 30, -20, 20);
+  ctx.fill();
+  ctx.stroke();
+
+  // Asa Direita
+  ctx.beginPath();
+  ctx.moveTo(20, 0);
+  ctx.quadraticCurveTo(120, -90 + wingFlap, 180, -30 + wingFlap);
+  ctx.quadraticCurveTo(100, 30, 20, 20);
+  ctx.fill();
+  ctx.stroke();
+
+  // Corpo e Peito do Dragão
+  ctx.fillStyle = "#110003";
+  ctx.beginPath();
+  ctx.ellipse(0, 20, 45, 60, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Cabeça e Chifres do Dragão
+  ctx.fillStyle = "#1a0005";
+  ctx.beginPath();
+  ctx.moveTo(-35, -30);
+  ctx.lineTo(-65, -80); // Chifre esquerdo
+  ctx.lineTo(-20, -50);
+  ctx.lineTo(0, -75);   // Coroa/Crista central
+  ctx.lineTo(20, -50);
+  ctx.lineTo(65, -80);  // Chifre direito
+  ctx.lineTo(35, -30);
+  ctx.lineTo(0, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Olhos Vermelhos Ameaçadores
+  ctx.fillStyle = "#FF0000";
+  ctx.shadowColor = "#FF0000";
+  ctx.shadowBlur = 15;
+  ctx.beginPath();
+  ctx.arc(-18, -30, 7, 0, Math.PI * 2);
+  ctx.arc(18, -30, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Focinho e Fumaça
+  ctx.fillStyle = "#FF4500";
+  ctx.beginPath();
+  ctx.arc(-8, -15, 3, 0, Math.PI * 2);
+  ctx.arc(8, -15, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Anel do Ponto Fraco (Alvo de Ataque)
+  ctx.strokeStyle = "#FFD700";
+  ctx.lineWidth = 4;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.arc(0, 0, boss.weakPointRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
 function gameLoop() {
   if (sandbox && sandbox.active) {
     sandbox.updateAndRender();
@@ -481,52 +600,29 @@ function gameLoop() {
   ctx.fillStyle = backgroundColor;
   ctx.fillRect(0, 0, cw, ch);
 
-  // Prisão do Mundo (Bordas encolhendo)
+  // Prisão do Mundo
   outerRadius -= shrinkSpeed;
   if (outerRadius < innerRadius + 20) {
     gameOver("A Prisão do Mundo se fechou completamente!");
     return;
   }
 
-  // Desenha a Prisão
   ctx.strokeStyle = "rgba(255, 50, 50, 0.6)";
   ctx.lineWidth = 6;
   ctx.beginPath();
   ctx.arc(cw / 2, ch / 2, outerRadius, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Spawna alvos periodicamente
   if (Math.random() < 0.04 && floatingTargets.length < 5 && currentPhase !== 9) {
     spawnTarget();
   }
 
-  // Se for Boss Dragão, desenha o Dragão no topo
+  // Desenha o Dragão das Trevas na Fase 9
   if (currentPhase === 9 && boss) {
-    ctx.save();
-    ctx.translate(boss.x, boss.y);
-    ctx.shadowColor = "#FF0000";
-    ctx.shadowBlur = 30;
-    
-    // Corpo do Dragão
-    ctx.fillStyle = "#330005";
-    ctx.beginPath();
-    ctx.arc(0, 0, boss.weakPointRadius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#FF0000";
-    ctx.lineWidth = 4;
-    ctx.stroke();
-
-    // Olhos do Dragão
-    ctx.fillStyle = "#FFD700";
-    ctx.beginPath();
-    ctx.arc(-25, -15, 10, 0, Math.PI * 2);
-    ctx.arc(25, -15, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
+    drawDragon(boss.x, boss.y);
   }
 
-  // Atualiza e Desenha Alvos Fatiáveis
+  // Desenha Alvos Fatiáveis (Pequenos e Elegantes)
   for (let i = floatingTargets.length - 1; i >= 0; i--) {
     let t = floatingTargets[i];
     t.x += t.vx;
@@ -545,22 +641,28 @@ function gameLoop() {
     if (t.type === 2) { // Bomba / Perdição
       ctx.fillStyle = "#8B0000";
       ctx.shadowColor = "#FF0000";
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 12;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
     } else if (t.type === 1) { // Alma / Filho Espiritual
       ctx.fillStyle = "#FFF8DC";
       ctx.shadowColor = "#FFD700";
-      ctx.shadowBlur = 20;
+      ctx.shadowBlur = 15;
       ctx.beginPath();
       ctx.arc(0, 0, t.size / 2, 0, Math.PI * 2);
       ctx.fill();
-    } else { // Normal
+    } else { // Cristal Pequeno Reluzente
       ctx.fillStyle = "#00FFFF";
       ctx.shadowColor = "#00BFFF";
-      ctx.shadowBlur = 15;
-      ctx.fillRect(-t.size / 2, -t.size / 2, t.size, t.size);
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.moveTo(0, -t.size / 2);
+      ctx.lineTo(t.size / 2, 0);
+      ctx.lineTo(0, t.size / 2);
+      ctx.lineTo(-t.size / 2, 0);
+      ctx.closePath();
+      ctx.fill();
     }
 
     ctx.restore();
@@ -582,7 +684,7 @@ function gameLoop() {
     ctx.fill();
   }
 
-  // Desenha o Rastro da Espada (Blade Trail)
+  // Rastro da Espada
   const equippedBlade = shopManager.getEquippedBlade();
   if (bladePoints.length > 1) {
     ctx.save();
@@ -607,7 +709,6 @@ function gameLoop() {
 // Inicialização
 updateCoinsDisplay();
 
-// Helper global para troca de ferramentas no Sandbox
 window.setSandboxTool = function(toolName) {
   if (sandbox) sandbox.setTool(toolName);
   const btns = document.querySelectorAll('.tool-btn');
